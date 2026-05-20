@@ -21,7 +21,13 @@ public class EsgFxModelLoader {
     private static final Map<String, ExampleFiles> EXAMPLES = Map.of(
             "SVM", new ExampleFiles(
                     "lib/esg-core/files/Cases/SodaVendingMachine/SVM_ESGFx.mxe",
-                    "lib/esg-core/files/Cases/SodaVendingMachine/configs/model.xml"));
+                    "lib/esg-core/files/Cases/SodaVendingMachine/configs/model.xml"),
+            "eM", new ExampleFiles(
+                    "lib/esg-core/files/Cases/eMail/eM_ESGFx.mxe",
+                    "lib/esg-core/files/Cases/eMail/configs/model.xml"),
+            "El", new ExampleFiles(
+                    "lib/esg-core/files/Cases/Elevator/El_ESGFx.mxe",
+                    "lib/esg-core/files/Cases/Elevator/configs/model.xml"));
 
     public EsgFxExample load(String shortName) {
         ExampleFiles files = EXAMPLES.get(shortName);

@@ -23,11 +23,18 @@ import tr.edu.iyte.esgfx.model.featuremodel.FeatureModel;
 @Service
 public class EsgFxJsonExporter {
 
+    private final FeatureLabelLoader featureLabelLoader;
+
+    public EsgFxJsonExporter(FeatureLabelLoader featureLabelLoader) {
+        this.featureLabelLoader = featureLabelLoader;
+    }
+
     public Map<String, Object> export(EsgFxExample example) {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("name", example.shortName());
         root.put("esgFx", exportEsgFx(example.esg()));
         root.put("featureModel", exportFeatureModel(example.featureModel()));
+        root.put("featureLabels", featureLabelLoader.labelsFor(example.shortName()));
         return root;
     }
 

@@ -16,10 +16,11 @@
 - **Verification:** `curl http://localhost:8080/api/example/svm` returns JSON with 15 vertices and 21 edges in the ESG-Fx, and the SVM feature model tree
 
 ## Phase 1B: Single-product test generation
-- [ ] SingleProductTestGenerator service (L=1 via EulerCycleGeneratorForEventCoverage, L=2/3/4 via EulerCycleGeneratorForEdgeCoverage with transformation pipeline)
-- [ ] ProductConfigurationValidator wrapper service
-- [ ] REST endpoint POST /api/generate
-- **Verification:** POST with {splName: "SVM", features: ["soda"], coverageLength: 1} returns the same test sequence as the existing Java pipeline for product P1
+- [x] SingleProductTestGenerator service (L=1 via EulerCycleGeneratorForEventCoverage, L=2/3/4 via EulerCycleGeneratorForEdgeCoverage with transformation pipeline)
+- [x] ProductConfigurationValidator wrapper service
+- [x] REST endpoint POST /api/generate
+- [x] EsgFxModelLoader extended for eM and Elevator preloaded examples
+- **Verification:** POST {splName:"SVM", features:["s"], coverageLength:1} returns Product P1's sequence (pay, change, soda, serveSoda, open, take, close) with 100% event coverage. SVM feature names in the engine model are short codes (`s`, `t`, `f`, `c`), not event names — sending `["soda"]` correctly rejects as invalid.
 
 ## Phase 2: Frontend skeleton + visualization
 - [ ] Thymeleaf base layout with Tailwind via CDN

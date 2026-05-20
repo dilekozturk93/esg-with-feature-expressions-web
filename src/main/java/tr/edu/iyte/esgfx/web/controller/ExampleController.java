@@ -25,4 +25,14 @@ public class ExampleController {
     public Map<String, Object> svm() {
         return exporter.export(loader.load("SVM"));
     }
+
+    @GetMapping("/em")
+    public Map<String, Object> eMail() {
+        return exporter.export(loader.load("eM"));
+    }
+
+    @GetMapping("/el")
+    public Map<String, Object> elevator() {
+        return exporter.export(loader.load("El"));
+    }
 }

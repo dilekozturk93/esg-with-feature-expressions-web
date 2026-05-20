@@ -1,0 +1,15 @@
+{
+  "SVM": {
+    "s": "soda",
+    "t": "tea",
+    "f": "free",
+    "c": "cancel"
+  },
+  "eM": {
+    "ad": "addressbook",
+    "au": "autoresponder",
+    "f": "forward",
+    "en": "encrypt",
+    "s": "sign"
+  }
+}
