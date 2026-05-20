@@ -8,11 +8,11 @@
 - **Verification:** `mvn spring-boot:run` starts a server rendering an "ESG-Fx Web Tool" Tailwind-styled card at http://localhost:8080/
 
 ## Phase 1A: Engine integration + ESG-Fx rendering
-- [ ] Submodule build pipeline (mvn install on lib/esg-core/)
-- [ ] Web project pom.xml depends on the installed esg-core artifact
-- [ ] EsgFxModelLoader service loads SVM feature model + ESG-Fx into memory
-- [ ] EsgFxJsonExporter service serializes ESG-Fx and feature model to Cytoscape.js-compatible JSON
-- [ ] REST endpoint GET /api/example/svm returns the JSON
+- [x] Submodule build pipeline (mvn install on lib/esg-core/)
+- [x] Web project pom.xml depends on the installed esg-core artifact
+- [x] EsgFxModelLoader service loads SVM feature model + ESG-Fx into memory
+- [x] EsgFxJsonExporter service serializes ESG-Fx and feature model to Cytoscape.js-compatible JSON
+- [x] REST endpoint GET /api/example/svm returns the JSON
 - **Verification:** `curl http://localhost:8080/api/example/svm` returns JSON with 15 vertices and 21 edges in the ESG-Fx, and the SVM feature model tree
 
 ## Phase 1B: Single-product test generation

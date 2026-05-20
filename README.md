@@ -21,17 +21,25 @@ git submodule update --init --recursive
 
 Requires Java 17 and Maven 3.9+.
 
-Build:
+Build (two steps — install the engine into your local Maven repo, then
+build the web app):
 
 ```bash
-mvn clean compile
+./build.sh
 ```
+
+`build.sh` runs `mvn install` inside `lib/esg-core/` (which targets Java 11
+but compiles cleanly under JDK 17) and then packages the web app at the
+project root.
 
 Run:
 
 ```bash
 mvn spring-boot:run
 ```
+
+Once the engine has been installed locally, `mvn spring-boot:run` works on
+its own — you only need to re-run `./build.sh` when the submodule changes.
 
 Then open <http://localhost:8080/> in a browser.
 

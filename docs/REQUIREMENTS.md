@@ -34,9 +34,10 @@ SPLC 2026 Tool Track. Deliverables required:
 
 ### FR4: ESG-Fx visualization
 - Directed graph
-- Edges labeled with feature expressions
-- Initial vertex marked distinctly (e.g., double border)
-- Hover on edge shows full feature expression in tooltip
+- Vertices labeled with feature expressions (e.g., `s`, `t`, `!f ∧ c`)
+- Pseudo start and pseudo end vertices marked distinctly (e.g., 
+  double border or distinct shape)
+- Hover on a vertex shows its full feature expression in a tooltip
 - Cytoscape.js with `dagre` layout
 
 ### FR5: Coverage length selection
