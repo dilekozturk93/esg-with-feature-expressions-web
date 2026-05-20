@@ -17,9 +17,9 @@ SPLC 2026 Tool Track. Deliverables required:
 ## Functional requirements
 
 ### FR1: Example loading
-- Three preloaded examples: SVM (4 features), e-Mail (5 features), Bank Account (9 features)
+- Three preloaded examples: SVM (4 features), e-Mail (5 features), Elevator (9 features)
 - Loaded with a single dropdown selection — no upload required for examples
-- Examples come bundled as XML files in `examples/` folder
+- Examples are loaded from the submodule at `lib/esg-core/files/Cases/<SPLName>/`
 
 ### FR2: Custom upload
 - Feature model: FeatureIDE XML format (`.xml`)

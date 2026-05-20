@@ -24,7 +24,7 @@
 ## Phase 2: Frontend skeleton + visualization
 - [ ] Thymeleaf base layout with Tailwind via CDN
 - [ ] Cytoscape.js loaded, renders SVM ESG-Fx on page load
-- [ ] Dropdown to switch between SVM/eM/BA examples
+- [ ] Dropdown to switch between SVM/eM/Elevator examples
 - [ ] Feature model rendered as tree
 - **Verification:** Visit /, see both graphs render, switching examples works
 
