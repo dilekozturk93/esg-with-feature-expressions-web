@@ -7,12 +7,19 @@
 - [x] First commit pushed
 - **Verification:** `mvn spring-boot:run` starts a server rendering an "ESG-Fx Web Tool" Tailwind-styled card at http://localhost:8080/
 
-## Phase 1: Java core integration
-- [ ] Inspect original repo: identify ESG, Vertex, Edge, FeatureModel classes
-- [ ] Copy or depend on the core
-- [ ] Write `EsgFxService.java` wrapping the engine
-- [ ] One REST endpoint: GET /api/example/svm returns SVM ESG-Fx as JSON
-- **Verification:** curl localhost:8080/api/example/svm returns valid JSON with nodes and edges
+## Phase 1A: Engine integration + ESG-Fx rendering
+- [ ] Submodule build pipeline (mvn install on lib/esg-core/)
+- [ ] Web project pom.xml depends on the installed esg-core artifact
+- [ ] EsgFxModelLoader service loads SVM feature model + ESG-Fx into memory
+- [ ] EsgFxJsonExporter service serializes ESG-Fx and feature model to Cytoscape.js-compatible JSON
+- [ ] REST endpoint GET /api/example/svm returns the JSON
+- **Verification:** `curl http://localhost:8080/api/example/svm` returns JSON with 15 vertices and 21 edges in the ESG-Fx, and the SVM feature model tree
+
+## Phase 1B: Single-product test generation
+- [ ] SingleProductTestGenerator service (L=1 via EulerCycleGeneratorForEventCoverage, L=2/3/4 via EulerCycleGeneratorForEdgeCoverage with transformation pipeline)
+- [ ] ProductConfigurationValidator wrapper service
+- [ ] REST endpoint POST /api/generate
+- **Verification:** POST with {splName: "SVM", features: ["soda"], coverageLength: 1} returns the same test sequence as the existing Java pipeline for product P1
 
 ## Phase 2: Frontend skeleton + visualization
 - [ ] Thymeleaf base layout with Tailwind via CDN
