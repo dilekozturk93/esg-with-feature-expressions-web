@@ -15,3 +15,8 @@ buildNumber.properties
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+
+# Local development notes (not for repo)
+PROJECT_CONTEXT.md
+.claude/
+*.claude-session
