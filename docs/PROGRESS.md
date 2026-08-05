@@ -16,11 +16,17 @@
 - **Verification:** `curl http://localhost:8080/api/example/svm` returns JSON with 15 vertices and 21 edges in the ESG-Fx, and the SVM feature model tree
 
 ## Phase 1B: Single-product test generation
-- [x] SingleProductTestGenerator service (L=1 via EulerCycleGeneratorForEventCoverage, L=2/3/4 via EulerCycleGeneratorForEdgeCoverage with transformation pipeline)
-- [x] ProductConfigurationValidator wrapper service
+- [x] `SingleProductTestGenerationAPI` in the engine (L=1 via EulerCycleGeneratorForEventCoverage, L=2/3/4 via EulerCycleGeneratorForEdgeCoverage with transformation pipeline)
 - [x] REST endpoint POST /api/generate
 - [x] EsgFxModelLoader extended for eM and Elevator preloaded examples
+- [x] Web service layer reduced to a thin wrapper over the engine API
 - **Verification:** POST {splName:"SVM", features:["s"], coverageLength:1} returns Product P1's sequence (pay, change, soda, serveSoda, open, take, close) with 100% event coverage. SVM feature names in the engine model are short codes (`s`, `t`, `f`, `c`), not event names — sending `["soda"]` correctly rejects as invalid.
+
+## Phase 1C: Ground-truth verification
+- [x] Regenerated per-product ground truth for SVM, eM and Elevator from the original RQ1 pipelines
+- [x] `SingleProductApiCheck` (engine, no server): 308/308 PASS
+- [x] `scripts/verify_against_ground_truth.py` classifies MATCH / EQUIVALENT / MISMATCH instead of failing on Euler-cycle arrangement differences
+- **Verification:** end-to-end over HTTP, 304/308 exact MATCH, 4 EQUIVALENT (El L=1 — same coverage, same sequence and event counts, different repeated event), 0 MISMATCH, 0 ERROR. The earlier failure — the whole pipeline running on the 150% SPL model instead of the derived product model — is gone, and with it the SVM L=4 timeouts.
 
 ## Phase 2: Frontend skeleton + visualization
 - [ ] Thymeleaf base layout with Tailwind via CDN
@@ -35,7 +41,7 @@
 - [ ] Coverage length selector
 - [ ] Generate button → results table
 - [ ] CSV download
-- **Verification:** Generate tests for SVM with `soda` selected, get same output as Java CLI
+- **Verification:** Generate tests for SVM with the `s` feature selected, get the same output as the engine API
 
 ## Phase 4: Highlight + polish
 - [ ] Click sequence → highlight on ESG-Fx
