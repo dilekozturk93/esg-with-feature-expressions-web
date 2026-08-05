@@ -1,7 +1,6 @@
 package tr.edu.iyte.esgfx.web.controller;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -23,6 +22,7 @@ import tr.edu.iyte.esgfx.web.service.TestGenerationResult;
 public class GenerationController {
 
     private static final long GENERATION_TIMEOUT_SECONDS = 60;
+    private static final int DEFAULT_PRODUCT_ID = 1;
 
     private final SingleProductTestGenerator generator;
 
@@ -32,11 +32,14 @@ public class GenerationController {
 
     @PostMapping
     public ResponseEntity<?> generate(@RequestBody GenerateRequest request) {
-        Set<String> features = request.features() == null ? Set.of() : Set.copyOf(request.features());
+        Map<String, Boolean> featureSelection =
+                request.featureSelection() == null ? Map.of() : request.featureSelection();
+        int productId = request.productId() == null ? DEFAULT_PRODUCT_ID : request.productId();
 
         CompletableFuture<TestGenerationResult> future = CompletableFuture.supplyAsync(() -> {
             try {
-                return generator.generate(request.splName(), features, request.coverageLength());
+                return generator.generate(request.splName(), featureSelection, productId,
+                        request.coverageLength());
             } catch (RuntimeException e) {
                 throw e;
             } catch (Exception e) {
@@ -65,6 +68,12 @@ public class GenerationController {
         }
     }
 
-    public record GenerateRequest(String splName, Set<String> features, int coverageLength) {
+    /**
+     * {@code featureSelection} maps engine-level feature names to truth values.
+     * {@code productId} is optional and only labels the result, so that a
+     * multi-product UI can match responses to the products the user ordered.
+     */
+    public record GenerateRequest(String splName, Map<String, Boolean> featureSelection,
+            int coverageLength, Integer productId) {
     }
 }

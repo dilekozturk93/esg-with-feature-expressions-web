@@ -35,8 +35,13 @@ def base(event_name: str) -> str:
     return SUFFIX.sub("", normalized)
 
 
-def parse_config(path: Path) -> set[str]:
-    selected = set()
+def parse_config(path: Path) -> dict[str, bool]:
+    """
+    Returns the complete feature name -> truth value map. The API is handed the
+    whole map rather than only the enabled names, so that it never has to guess
+    a value for a feature the caller left out.
+    """
+    selection = {}
     for raw in path.read_text().splitlines():
         line = raw.strip()
         if not line:
@@ -45,10 +50,16 @@ def parse_config(path: Path) -> set[str]:
             raise ValueError(f"{path}: malformed line {line!r}")
         name, value = (part.strip() for part in line.split("=", 1))
         if value.lower() == "true":
-            selected.add(name)
-        elif value.lower() != "false":
+            selection[name] = True
+        elif value.lower() == "false":
+            selection[name] = False
+        else:
             raise ValueError(f"{path}: non-boolean value in {line!r}")
-    return selected
+    return selection
+
+
+def enabled_features(selection: dict[str, bool]) -> list[str]:
+    return sorted(name for name, enabled in selection.items() if enabled)
 
 
 def parse_ground_truth(path: Path, level: int):
@@ -130,10 +141,10 @@ def api_items(sequences: list[list[str]], level: int) -> Counter:
     return items
 
 
-def call_api(base_url: str, spl: str, features: set[str], level: int):
+def call_api(base_url: str, spl: str, selection: dict[str, bool], level: int):
     body = json.dumps({
         "splName": spl,
-        "features": sorted(features),
+        "featureSelection": selection,
         "coverageLength": level,
     }).encode()
     req = urllib.request.Request(
@@ -222,7 +233,7 @@ def write_report(report_root: Path, spl: str, level: int, pid: str, body: str):
     target.write_text(body)
 
 
-def compare_one(spl: str, level: int, pid: str, features: set[str],
+def compare_one(spl: str, level: int, pid: str, selection: dict[str, bool],
                 gt_pct: float, gt_items: Counter, gt_seq_count: int,
                 api_payload) -> tuple[str, str]:
     """
@@ -255,7 +266,7 @@ def compare_one(spl: str, level: int, pid: str, features: set[str],
 
     report = [
         f"SPL: {spl}",
-        f"Config: {pid} (features: {sorted(features)})",
+        f"Config: {pid} (features: {enabled_features(selection)})",
         f"Coverage length: L={level}",
         "",
         "Ground truth:",
@@ -401,7 +412,7 @@ def main(argv=None):
 
             level_match = level_equivalent = level_mismatch = level_error = 0
             for pid, gt_path in pid_pairs:
-                features = configs[pid]
+                selection = configs[pid]
                 try:
                     gt_pct, gt_items, gt_seq_count = parse_ground_truth(gt_path, level)
                 except ValueError as exc:
@@ -412,12 +423,12 @@ def main(argv=None):
                     print(f"Error: {exc}")
                     return 4
 
-                status, payload = call_api(args.base_url, spl, features, level)
+                status, payload = call_api(args.base_url, spl, selection, level)
                 if status != 200:
                     level_error += 1
                     label = f"[{spl}][L{level}] {pid}: ERROR (HTTP {status} — {json.dumps(payload)})"
                     print(label)
-                    body = (f"SPL: {spl}\nConfig: {pid} (features: {sorted(features)})\n"
+                    body = (f"SPL: {spl}\nConfig: {pid} (features: {enabled_features(selection)})\n"
                             f"Coverage length: L={level}\n\nAPI HTTP {status}: {json.dumps(payload, indent=2)}\n")
                     write_report(args.reports_dir, spl, level, pid, body)
                     if status == 503 and args.restart_on_timeout:
@@ -426,7 +437,7 @@ def main(argv=None):
                         restart_server(args.base_url, port, args.server_start_cmd, args.server_log)
                     continue
 
-                verdict, body = compare_one(spl, level, pid, features,
+                verdict, body = compare_one(spl, level, pid, selection,
                                             gt_pct, gt_items, gt_seq_count, payload)
                 print(f"[{spl}][L{level}] {pid}: {verdict}")
                 if verdict == "MATCH":
