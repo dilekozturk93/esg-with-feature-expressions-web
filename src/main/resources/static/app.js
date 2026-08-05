@@ -125,6 +125,7 @@ let currentFeatureLabels = {};
 let currentExample = null;
 let latestResult = null;
 let allProducts = null;
+let lastGenerationMode = 'single';
 let validationTimer = null;
 
 const tooltip = document.getElementById('tooltip');
@@ -273,19 +274,42 @@ function forcedFeatureNames(featureModel) {
     return forced;
 }
 
-function renderFeatureCheckboxes(features, featureModel) {
-    const container = document.getElementById('feature-checkboxes');
-    container.replaceChildren();
-    const forced = forcedFeatureNames(featureModel);
+function createProductBlock() {
+    const forced = forcedFeatureNames(currentExample.featureModel);
 
-    features.forEach((featureName) => {
+    const block = document.createElement('div');
+    block.className = 'product-block rounded-md border border-slate-200 px-3 py-2.5';
+
+    const header = document.createElement('div');
+    header.className = 'flex items-center justify-between mb-2';
+
+    const title = document.createElement('span');
+    title.className = 'product-title text-sm font-medium';
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'remove-product text-xs text-slate-500 hover:text-red-700';
+    remove.textContent = 'Remove';
+    remove.addEventListener('click', () => {
+        block.remove();
+        clearResults();
+        renumberProducts();
+        updateGenerateButton();
+    });
+
+    header.append(title, remove);
+
+    const checkboxes = document.createElement('div');
+    checkboxes.className = 'feature-checkboxes grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4';
+
+    currentExample.features.forEach((featureName) => {
         const label = document.createElement('label');
         label.className = 'inline-flex items-center gap-2 text-sm';
 
         const input = document.createElement('input');
         input.type = 'checkbox';
         input.value = featureName;
-        input.addEventListener('change', scheduleValidation);
+        input.addEventListener('change', () => scheduleValidation(block));
 
         if (forced.has(featureName)) {
             input.checked = true;
@@ -310,20 +334,41 @@ function renderFeatureCheckboxes(features, featureModel) {
         }
 
         label.append(input, text);
-        container.appendChild(label);
+        checkboxes.appendChild(label);
+    });
+
+    const status = document.createElement('div');
+    status.className = 'validation-status text-sm mt-2';
+
+    block.append(header, checkboxes, status);
+    return block;
+}
+
+function productBlocks() {
+    return Array.from(document.querySelectorAll('.product-block'));
+}
+
+// Only the removal control is per-product; the numbering has to be redone from
+// scratch after one goes, and a single product needs no remove button at all.
+function renumberProducts() {
+    const blocks = productBlocks();
+    blocks.forEach((block, index) => {
+        block.querySelector('.product-title').textContent = 'Product ' + (index + 1);
+        block.querySelector('.remove-product').classList.toggle('hidden', blocks.length === 1);
     });
 }
 
-function selectedFeatureNames() {
-    return Array.from(document.querySelectorAll('#feature-checkboxes input:checked'))
-        .map((input) => input.value);
+function resetProducts() {
+    const container = document.getElementById('products');
+    container.replaceChildren(createProductBlock());
+    renumberProducts();
 }
 
 // The API is handed every feature, not just the ticked ones, so it never has to
 // infer a value for one the page left out.
-function currentSelection() {
+function selectionOfBlock(block) {
     const selection = {};
-    document.querySelectorAll('#feature-checkboxes input').forEach((input) => {
+    block.querySelectorAll('input[type="checkbox"]').forEach((input) => {
         selection[input.value] = input.checked;
     });
     return selection;
@@ -351,7 +396,7 @@ async function loadExample(name) {
 
         renderFeatureModel(payload.featureModel, currentFeatureLabels);
         renderEsgFx(payload.esgFx);
-        renderFeatureCheckboxes(payload.features, payload.featureModel);
+        resetProducts();
 
         setStat('stat-configs', payload.configurationCount.toLocaleString());
         setStat('stat-features', payload.featureModel.nodes.length);
@@ -365,18 +410,28 @@ async function loadExample(name) {
 }
 
 const generateButton = document.getElementById('generate-button');
-const validationStatus = document.getElementById('validation-status');
 const downloadButton = document.getElementById('download-csv');
 
-function setValidationStatus(state, message) {
-    const colours = {
-        valid: 'text-emerald-700',
-        invalid: 'text-red-700',
-        pending: 'text-slate-500'
-    };
-    validationStatus.className = 'text-sm ' + colours[state];
-    validationStatus.textContent = message;
-    generateButton.disabled = state !== 'valid';
+const VALIDATION_COLOURS = {
+    valid: 'text-emerald-700',
+    invalid: 'text-red-700',
+    pending: 'text-slate-500'
+};
+
+function setBlockStatus(block, state, message) {
+    const status = block.querySelector('.validation-status');
+    status.className = 'validation-status text-sm mt-2 ' + VALIDATION_COLOURS[state];
+    status.textContent = message;
+    block.dataset.valid = state === 'valid' ? 'true' : 'false';
+}
+
+function updateGenerateButton() {
+    if (currentMode() === 'all') {
+        return;
+    }
+    const blocks = productBlocks();
+    generateButton.disabled = blocks.length === 0
+        || blocks.some((block) => block.dataset.valid !== 'true');
 }
 
 function currentMode() {
@@ -404,7 +459,6 @@ function applyMode() {
 
     const allMode = currentMode() === 'all';
     document.getElementById('feature-section').classList.toggle('hidden', allMode);
-    validationStatus.classList.toggle('hidden', allMode);
     generateButton.textContent = allMode ? 'Generate for all products' : 'Generate tests';
 
     if (!currentExample) {
@@ -422,17 +476,18 @@ function applyMode() {
     if (allMode) {
         generateButton.disabled = overLimit;
     } else {
-        validateSelection();
+        validateAllBlocks();
     }
 }
 
-function scheduleValidation() {
-    setValidationStatus('pending', 'Checking configuration…');
+function scheduleValidation(block) {
+    setBlockStatus(block, 'pending', 'Checking configuration…');
+    updateGenerateButton();
     clearTimeout(validationTimer);
-    validationTimer = setTimeout(validateSelection, VALIDATION_DEBOUNCE_MS);
+    validationTimer = setTimeout(() => validateBlock(block), VALIDATION_DEBOUNCE_MS);
 }
 
-async function validateSelection() {
+async function validateBlock(block) {
     if (!currentSpl) {
         return;
     }
@@ -440,17 +495,22 @@ async function validateSelection() {
         const response = await fetch('/api/config/validate', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({splName: currentSpl, featureSelection: currentSelection()})
+            body: JSON.stringify({splName: currentSpl, featureSelection: selectionOfBlock(block)})
         });
         const body = await response.json();
         if (body.valid) {
-            setValidationStatus('valid', 'Configuration is valid.');
+            setBlockStatus(block, 'valid', 'Configuration is valid.');
         } else {
-            setValidationStatus('invalid', (body.errors || ['Configuration is not valid.']).join(' '));
+            setBlockStatus(block, 'invalid', (body.errors || ['Configuration is not valid.']).join(' '));
         }
     } catch (error) {
-        setValidationStatus('invalid', 'Could not validate the configuration: ' + error.message);
+        setBlockStatus(block, 'invalid', 'Could not validate the configuration: ' + error.message);
     }
+    updateGenerateButton();
+}
+
+function validateAllBlocks() {
+    productBlocks().forEach(validateBlock);
 }
 
 // Guards the backtracking search below against a pathological model; the walks
@@ -656,10 +716,21 @@ async function generate() {
     const originalLabel = generateButton.textContent;
     generateButton.textContent = 'Generating…';
 
-    const request = allMode
-        ? {url: '/api/generate/all', body: {splName: currentSpl, coverageLength: selectedCoverageLength()}}
-        : {url: '/api/generate', body: {splName: currentSpl, featureSelection: currentSelection(),
-            coverageLength: selectedCoverageLength()}};
+    const blocks = productBlocks();
+    const multi = !allMode && blocks.length > 1;
+    let request;
+    if (allMode) {
+        request = {url: '/api/generate/all',
+            body: {splName: currentSpl, coverageLength: selectedCoverageLength()}};
+    } else if (multi) {
+        request = {url: '/api/generate/multi',
+            body: {splName: currentSpl, coverageLength: selectedCoverageLength(),
+                products: blocks.map(selectionOfBlock)}};
+    } else {
+        request = {url: '/api/generate',
+            body: {splName: currentSpl, coverageLength: selectedCoverageLength(),
+                featureSelection: selectionOfBlock(blocks[0])}};
+    }
 
     try {
         const response = await fetch(request.url, {
@@ -673,7 +744,8 @@ async function generate() {
             throw new Error(message);
         }
 
-        if (allMode) {
+        lastGenerationMode = allMode ? 'all' : (multi ? 'multi' : 'single');
+        if (allMode || multi) {
             allProducts = body.products;
             renderProductPicker(allProducts);
             renderResults(allProducts[0]);
@@ -725,12 +797,14 @@ function downloadCsv() {
     const csv = rows.map((row) => row.map(csvCell).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
 
+    const scope = lastGenerationMode === 'all' ? 'allProducts'
+        : (lastGenerationMode === 'multi' ? products.length + 'products'
+            : 'P' + latestResult.productId);
+
     const link = document.createElement('a');
     link.href = url;
-    link.download = allProducts
-        ? latestResult.splShortName + '_allProducts_L' + latestResult.coverageLength + '.csv'
-        : latestResult.splShortName + '_P' + latestResult.productId
-            + '_L' + latestResult.coverageLength + '.csv';
+    link.download = latestResult.splShortName + '_' + scope
+        + '_L' + latestResult.coverageLength + '.csv';
     link.click();
     URL.revokeObjectURL(url);
 }
@@ -743,6 +817,14 @@ document.getElementById('coverage-length').addEventListener('change', clearResul
 document.getElementById('generation-mode').addEventListener('change', () => {
     clearResults();
     applyMode();
+});
+
+document.getElementById('add-product').addEventListener('click', () => {
+    const block = createProductBlock();
+    document.getElementById('products').appendChild(block);
+    clearResults();
+    renumberProducts();
+    validateBlock(block);
 });
 
 document.getElementById('product-select').addEventListener('change', (event) => {

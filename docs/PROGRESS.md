@@ -50,9 +50,11 @@
 - **Note:** sequences keep the engine's `_N` vertex suffix at L≥2. That suffix is the vertex identity rather than part of the event name, and FR10's highlighting needs it to map a sequence back onto the graph, so it is deliberately not stripped.
 
 ## Phase 3B: Multi-product (Mode A "+" control)
-- [ ] `MultiProductTestGenerationAPI` in the engine
-- [ ] "+" control to add product 2, 3, … and results grouped per product
-- **Verification:** Two products in one request return results matching two separate single-product calls
+- [x] `MultiProductTestGenerationAPI` in the engine, validating the whole set before generating any of it
+- [x] `POST /api/generate/multi`, naming the offending product when one is invalid
+- [x] "+ Add product" and per-product Remove, each product with its own feature block and validation line
+- [x] Generate blocked until every product validates; results reuse the product picker and CSV covers them all
+- **Verification:** Multi-product results are identical to separate single-product calls — 28 comparisons across three SPLs, several configurations and all four coverage lengths, zero differences. In the browser: two SVM products generated (P1 `s` → 1 sequence, P2 `c,t` → 2), every sequence highlights, CSV exports as `SVM_2products_L2.csv` with both product ids. Invalid product 2 blocks generation and the API reports `Product 2: …`. Removing a product renumbers the rest and clears stale results; switching example or mode resets to a single product.
 
 ## Phase 3C: All products (Mode B)
 - [x] `AllProductsTestGenerationAPI` in the engine, delegating each configuration to the single-product API

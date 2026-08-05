@@ -117,8 +117,14 @@
                 </div>
 
                 <div id="feature-section">
-                    <div class="text-sm text-slate-600 mb-2">Features</div>
-                    <div id="feature-checkboxes" class="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4"></div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm text-slate-600">Products</span>
+                        <button id="add-product" type="button"
+                                class="text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50">
+                            + Add product
+                        </button>
+                    </div>
+                    <div id="products" class="space-y-3"></div>
                 </div>
 
                 <div>
@@ -137,8 +143,6 @@
                         L=1 measures event coverage; L=2, 3 and 4 measure edge coverage.
                     </p>
                 </div>
-
-                <div id="validation-status" class="text-sm"></div>
 
                 <button id="generate-button" type="button"
                         class="w-full rounded-md bg-slate-900 text-white text-sm font-medium px-4 py-2.5
