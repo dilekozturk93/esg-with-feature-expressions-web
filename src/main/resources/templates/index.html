@@ -104,6 +104,19 @@
 
             <div class="px-4 py-4 space-y-4">
                 <div>
+                    <div class="text-sm text-slate-600 mb-2">Mode</div>
+                    <div id="generation-mode" class="flex flex-wrap gap-4 text-sm">
+                        <label class="inline-flex items-center gap-1.5">
+                            <input type="radio" name="generation-mode" value="specific" checked/>
+                            Specific product</label>
+                        <label class="inline-flex items-center gap-1.5">
+                            <input type="radio" name="generation-mode" value="all"/>
+                            All products</label>
+                    </div>
+                    <p id="all-products-hint" class="hidden text-xs text-slate-500 mt-1.5"></p>
+                </div>
+
+                <div id="feature-section">
                     <div class="text-sm text-slate-600 mb-2">Features</div>
                     <div id="feature-checkboxes" class="grid grid-cols-1 sm:grid-cols-2 gap-y-2 gap-x-4"></div>
                 </div>
@@ -167,6 +180,13 @@
                         <div class="text-slate-500">Generation time</div>
                         <div id="result-time" class="text-lg font-semibold mt-0.5">&mdash;</div>
                     </div>
+                </div>
+                <div id="product-picker" class="hidden px-4 py-2 border-b border-slate-200">
+                    <label class="text-xs text-slate-500">
+                        Product
+                        <select id="product-select"
+                                class="ml-1 border border-slate-300 rounded px-2 py-1 text-xs bg-white"></select>
+                    </label>
                 </div>
                 <div class="px-4 py-2 text-xs text-slate-500 border-b border-slate-200">
                     Product <span id="result-product">1</span> &mdash;

@@ -54,6 +54,15 @@
 - [ ] "+" control to add product 2, 3, … and results grouped per product
 - **Verification:** Two products in one request return results matching two separate single-product calls
 
+## Phase 3C: All products (Mode B)
+- [x] `AllProductsTestGenerationAPI` in the engine, delegating each configuration to the single-product API
+- [x] `AllProductsApiCheck` alongside `SingleProductApiCheck`
+- [x] `POST /api/generate/all`, refusing models above `AllProductsTestGenerator.MAX_CONFIGURATIONS` (200)
+- [x] Mode selector, product picker over the generated set, CSV covering every product
+- [x] Mandatory features rendered checked and locked
+- **Verification:** All-products output reproduces the ground truth product for product — 308 products across three SPLs and four coverage lengths, checked both in-engine and over HTTP, zero mismatches. Product IDs line up because both the API and the research pipelines number only valid configurations. The count gate was exercised by temporarily lowering the limit to 20: SVM (12) generated, e-Mail (23) and Elevator (42) were refused with the count and limit in the message. All 12 SVM products render in the picker and all 22 of their sequences highlight.
+- **Note:** locking is derived from the feature model — the root, plus mandatory children of already-forced features. Or-group and alternative-group members are never locked; which one to take is the user's choice and the validator enforces the group rule. e-Mail's root `e` is concrete, so it appears as a locked checkbox; SVM's and Elevator's roots are abstract and carry no truth value, so they do not.
+
 ## Phase 4: Highlight + polish
 - [x] Click sequence → highlight on ESG-Fx, everything else dimmed
 - [x] Clear highlight button

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import tr.edu.iyte.esgfx.api.LoadedSplModel;
 import tr.edu.iyte.esgfx.api.SingleProductTestGenerationAPI;
+import tr.edu.iyte.esgfx.web.service.AllProductsTestGenerator;
 import tr.edu.iyte.esgfx.web.service.EsgFxJsonExporter;
 import tr.edu.iyte.esgfx.web.service.EsgFxModelLoader;
 
@@ -42,6 +43,7 @@ public class ExampleController {
         LoadedSplModel model = loader.load(shortName);
         Map<String, Object> payload = exporter.export(shortName, model);
         payload.put("configurationCount", SingleProductTestGenerationAPI.countValidConfigurations(model));
+        payload.put("allProductsLimit", AllProductsTestGenerator.MAX_CONFIGURATIONS);
 
         return ResponseEntity.ok(payload);
     }

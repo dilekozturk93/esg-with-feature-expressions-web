@@ -122,7 +122,9 @@ let featureModelGraph = null;
 let esgFxGraph = null;
 let currentSpl = null;
 let currentFeatureLabels = {};
+let currentExample = null;
 let latestResult = null;
+let allProducts = null;
 let validationTimer = null;
 
 const tooltip = document.getElementById('tooltip');
@@ -238,9 +240,43 @@ function displayNameFor(featureName) {
     return currentFeatureLabels[featureName] || featureName;
 }
 
-function renderFeatureCheckboxes(features) {
+// A feature is forced on when it is mandatory and everything above it is
+// forced too, starting from the root. Or-group and alternative-group children
+// are never forced individually — which of them to take is the user's choice,
+// and the validator is what enforces the group's own rule.
+function forcedFeatureNames(featureModel) {
+    const typeOf = {};
+    let root = null;
+    featureModel.nodes.forEach((node) => {
+        typeOf[node.data.id] = node.data.type;
+        if (node.data.type === 'root') {
+            root = node.data.id;
+        }
+    });
+
+    const childrenOf = {};
+    featureModel.edges.forEach((edge) => {
+        (childrenOf[edge.data.source] = childrenOf[edge.data.source] || []).push(edge.data.target);
+    });
+
+    const forced = new Set();
+    const queue = root === null ? [] : [root];
+    while (queue.length) {
+        const name = queue.shift();
+        forced.add(name);
+        (childrenOf[name] || []).forEach((child) => {
+            if (typeOf[child] === 'mandatory') {
+                queue.push(child);
+            }
+        });
+    }
+    return forced;
+}
+
+function renderFeatureCheckboxes(features, featureModel) {
     const container = document.getElementById('feature-checkboxes');
     container.replaceChildren();
+    const forced = forcedFeatureNames(featureModel);
 
     features.forEach((featureName) => {
         const label = document.createElement('label');
@@ -251,6 +287,12 @@ function renderFeatureCheckboxes(features) {
         input.value = featureName;
         input.addEventListener('change', scheduleValidation);
 
+        if (forced.has(featureName)) {
+            input.checked = true;
+            input.disabled = true;
+            label.title = 'Mandatory in the feature model';
+        }
+
         const text = document.createElement('span');
         const display = displayNameFor(featureName);
         text.textContent = display;
@@ -259,6 +301,12 @@ function renderFeatureCheckboxes(features) {
             engineName.className = 'text-slate-400 ml-1';
             engineName.textContent = '(' + featureName + ')';
             text.appendChild(engineName);
+        }
+        if (input.disabled) {
+            const required = document.createElement('span');
+            required.className = 'text-slate-400 ml-1';
+            required.textContent = '— required';
+            text.appendChild(required);
         }
 
         label.append(input, text);
@@ -298,18 +346,19 @@ async function loadExample(name) {
         const payload = await response.json();
 
         currentSpl = payload.name;
+        currentExample = payload;
         currentFeatureLabels = payload.featureLabels || {};
 
         renderFeatureModel(payload.featureModel, currentFeatureLabels);
         renderEsgFx(payload.esgFx);
-        renderFeatureCheckboxes(payload.features);
+        renderFeatureCheckboxes(payload.features, payload.featureModel);
 
         setStat('stat-configs', payload.configurationCount.toLocaleString());
         setStat('stat-features', payload.featureModel.nodes.length);
         setStat('stat-vertices', payload.esgFx.nodes.length);
         setStat('stat-edges', payload.esgFx.edges.length);
 
-        validateSelection();
+        applyMode();
     } catch (error) {
         showError('Could not load the example: ' + error.message);
     }
@@ -328,6 +377,53 @@ function setValidationStatus(state, message) {
     validationStatus.className = 'text-sm ' + colours[state];
     validationStatus.textContent = message;
     generateButton.disabled = state !== 'valid';
+}
+
+function currentMode() {
+    return document.querySelector('input[name="generation-mode"]:checked').value;
+}
+
+// All-products mode has no configuration to choose or validate — the engine
+// enumerates them — so the feature list and validation line step aside, and the
+// only gate left is whether the model is small enough to answer in one request.
+function applyMode() {
+    const hint = document.getElementById('all-products-hint');
+    const allRadio = document.querySelector('input[name="generation-mode"][value="all"]');
+
+    const count = currentExample ? currentExample.configurationCount : 0;
+    const limit = currentExample ? currentExample.allProductsLimit : 0;
+    const overLimit = currentExample !== null && count > limit;
+
+    // Switching from a small example to one over the limit would otherwise
+    // leave all-products selected but disabled, with the feature list hidden
+    // and nothing to press.
+    allRadio.disabled = overLimit;
+    if (overLimit && allRadio.checked) {
+        document.querySelector('input[name="generation-mode"][value="specific"]').checked = true;
+    }
+
+    const allMode = currentMode() === 'all';
+    document.getElementById('feature-section').classList.toggle('hidden', allMode);
+    validationStatus.classList.toggle('hidden', allMode);
+    generateButton.textContent = allMode ? 'Generate for all products' : 'Generate tests';
+
+    if (!currentExample) {
+        return;
+    }
+
+    hint.classList.toggle('hidden', !allMode && !overLimit);
+    if (overLimit) {
+        hint.textContent = count.toLocaleString() + ' valid configurations, above the limit of '
+            + limit.toLocaleString() + ' — use a specific product.';
+    } else if (allMode) {
+        hint.textContent = 'Generates tests for all ' + count.toLocaleString() + ' valid configurations.';
+    }
+
+    if (allMode) {
+        generateButton.disabled = overLimit;
+    } else {
+        validateSelection();
+    }
 }
 
 function scheduleValidation() {
@@ -479,10 +575,31 @@ function highlightSequence(sequence, row) {
 function clearResults() {
     clearHighlight();
     latestResult = null;
+    allProducts = null;
     downloadButton.disabled = true;
     document.getElementById('results').classList.add('hidden');
     document.getElementById('results-empty').classList.remove('hidden');
     document.getElementById('results-body').replaceChildren();
+    document.getElementById('product-picker').classList.add('hidden');
+}
+
+function renderProductPicker(products) {
+    const picker = document.getElementById('product-picker');
+    const select = document.getElementById('product-select');
+    select.replaceChildren();
+
+    products.forEach((product, index) => {
+        const enabled = Object.keys(product.featureSelection)
+            .filter((name) => product.featureSelection[name])
+            .map(displayNameFor);
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = product.productId + ' of ' + products.length
+            + ' — ' + (enabled.length ? enabled.join(', ') : 'no features');
+        select.appendChild(option);
+    });
+
+    picker.classList.remove('hidden');
 }
 
 function renderResults(result) {
@@ -534,26 +651,35 @@ function renderResults(result) {
 
 async function generate() {
     clearError();
+    const allMode = currentMode() === 'all';
     generateButton.disabled = true;
     const originalLabel = generateButton.textContent;
     generateButton.textContent = 'Generating…';
 
+    const request = allMode
+        ? {url: '/api/generate/all', body: {splName: currentSpl, coverageLength: selectedCoverageLength()}}
+        : {url: '/api/generate', body: {splName: currentSpl, featureSelection: currentSelection(),
+            coverageLength: selectedCoverageLength()}};
+
     try {
-        const response = await fetch('/api/generate', {
+        const response = await fetch(request.url, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                splName: currentSpl,
-                featureSelection: currentSelection(),
-                coverageLength: selectedCoverageLength()
-            })
+            body: JSON.stringify(request.body)
         });
         const body = await response.json();
         if (!response.ok) {
             const message = body.errors ? body.errors.join(' ') : (body.error || 'Generation failed.');
             throw new Error(message);
         }
-        renderResults(body);
+
+        if (allMode) {
+            allProducts = body.products;
+            renderProductPicker(allProducts);
+            renderResults(allProducts[0]);
+        } else {
+            renderResults(body);
+        }
     } catch (error) {
         clearResults();
         showError('Could not generate tests: ' + error.message);
@@ -571,24 +697,29 @@ function downloadCsv() {
     if (!latestResult) {
         return;
     }
-    const enabled = Object.keys(latestResult.featureSelection)
-        .filter((name) => latestResult.featureSelection[name]);
+    // In all-products mode the export covers the whole run, not just the
+    // product currently on screen.
+    const products = allProducts || [latestResult];
 
     const rows = [['spl', 'productId', 'features', 'coverageLength', 'coverageType',
         'coveragePercentage', 'sequenceIndex', 'eventCount', 'sequence']];
 
-    latestResult.testSequences.forEach((sequence, index) => {
-        rows.push([
-            latestResult.splShortName,
-            latestResult.productId,
-            enabled.join(' '),
-            latestResult.coverageLength,
-            latestResult.coverageType,
-            latestResult.coveragePercentage,
-            index + 1,
-            sequence.length,
-            sequence.join(' -> ')
-        ]);
+    products.forEach((product) => {
+        const enabled = Object.keys(product.featureSelection)
+            .filter((name) => product.featureSelection[name]);
+        product.testSequences.forEach((sequence, index) => {
+            rows.push([
+                product.splShortName,
+                product.productId,
+                enabled.join(' '),
+                product.coverageLength,
+                product.coverageType,
+                product.coveragePercentage,
+                index + 1,
+                sequence.length,
+                sequence.join(' -> ')
+            ]);
+        });
     });
 
     const csv = rows.map((row) => row.map(csvCell).join(',')).join('\n');
@@ -596,8 +727,10 @@ function downloadCsv() {
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = latestResult.splShortName + '_P' + latestResult.productId
-        + '_L' + latestResult.coverageLength + '.csv';
+    link.download = allProducts
+        ? latestResult.splShortName + '_allProducts_L' + latestResult.coverageLength + '.csv'
+        : latestResult.splShortName + '_P' + latestResult.productId
+            + '_L' + latestResult.coverageLength + '.csv';
     link.click();
     URL.revokeObjectURL(url);
 }
@@ -606,6 +739,16 @@ generateButton.addEventListener('click', generate);
 downloadButton.addEventListener('click', downloadCsv);
 document.getElementById('clear-highlight').addEventListener('click', clearHighlight);
 document.getElementById('coverage-length').addEventListener('change', clearResults);
+
+document.getElementById('generation-mode').addEventListener('change', () => {
+    clearResults();
+    applyMode();
+});
+
+document.getElementById('product-select').addEventListener('change', (event) => {
+    clearHighlight();
+    renderResults(allProducts[Number(event.target.value)]);
+});
 
 document.getElementById('example-select').addEventListener('change', (event) => {
     loadExample(event.target.value);

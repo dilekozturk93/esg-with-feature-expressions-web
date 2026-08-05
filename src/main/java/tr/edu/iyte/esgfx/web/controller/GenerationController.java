@@ -1,5 +1,6 @@
 package tr.edu.iyte.esgfx.web.controller;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -14,20 +15,29 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import tr.edu.iyte.esgfx.api.InvalidConfigurationException;
+import tr.edu.iyte.esgfx.web.service.AllProductsTestGenerator;
 import tr.edu.iyte.esgfx.web.service.SingleProductTestGenerator;
 import tr.edu.iyte.esgfx.web.service.TestGenerationResult;
+import tr.edu.iyte.esgfx.web.service.TooManyConfigurationsException;
 
 @RestController
 @RequestMapping("/api/generate")
 public class GenerationController {
 
     private static final long GENERATION_TIMEOUT_SECONDS = 60;
+
+    /** Every product of a bundled example takes far longer than one. */
+    private static final long ALL_PRODUCTS_TIMEOUT_SECONDS = 300;
+
     private static final int DEFAULT_PRODUCT_ID = 1;
 
     private final SingleProductTestGenerator generator;
+    private final AllProductsTestGenerator allProductsGenerator;
 
-    public GenerationController(SingleProductTestGenerator generator) {
+    public GenerationController(SingleProductTestGenerator generator,
+            AllProductsTestGenerator allProductsGenerator) {
         this.generator = generator;
+        this.allProductsGenerator = allProductsGenerator;
     }
 
     @PostMapping
@@ -68,6 +78,41 @@ public class GenerationController {
         }
     }
 
+    @PostMapping("/all")
+    public ResponseEntity<?> generateAll(@RequestBody GenerateAllRequest request) {
+        CompletableFuture<List<TestGenerationResult>> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                return allProductsGenerator.generate(request.splName(), request.coverageLength());
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        try {
+            List<TestGenerationResult> results =
+                    future.orTimeout(ALL_PRODUCTS_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
+            return ResponseEntity.ok(Map.of("products", results));
+        } catch (CompletionException ex) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof TimeoutException) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                        "error", "Generation timed out after " + ALL_PRODUCTS_TIMEOUT_SECONDS + " seconds"));
+            }
+            if (cause instanceof TooManyConfigurationsException tooMany) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", tooMany.getMessage(),
+                        "configurationCount", tooMany.getConfigurationCount(),
+                        "limit", tooMany.getLimit()));
+            }
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
+            }
+            throw ex;
+        }
+    }
+
     /**
      * {@code featureSelection} maps engine-level feature names to truth values.
      * {@code productId} is optional and only labels the result, so that a
@@ -75,5 +120,8 @@ public class GenerationController {
      */
     public record GenerateRequest(String splName, Map<String, Boolean> featureSelection,
             int coverageLength, Integer productId) {
+    }
+
+    public record GenerateAllRequest(String splName, int coverageLength) {
     }
 }
