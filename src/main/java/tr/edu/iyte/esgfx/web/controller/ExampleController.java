@@ -23,16 +23,16 @@ public class ExampleController {
 
     @GetMapping("/svm")
     public Map<String, Object> svm() {
-        return exporter.export(loader.load("SVM"));
+        return exporter.export("SVM", loader.load("SVM"));
     }
 
     @GetMapping("/em")
     public Map<String, Object> eMail() {
-        return exporter.export(loader.load("eM"));
+        return exporter.export("eM", loader.load("eM"));
     }
 
     @GetMapping("/el")
     public Map<String, Object> elevator() {
-        return exporter.export(loader.load("El"));
+        return exporter.export("El", loader.load("El"));
     }
 }

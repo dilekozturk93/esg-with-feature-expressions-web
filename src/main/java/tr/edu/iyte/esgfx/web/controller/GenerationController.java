@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import tr.edu.iyte.esgfx.web.service.InvalidConfigurationException;
+import tr.edu.iyte.esgfx.api.InvalidConfigurationException;
 import tr.edu.iyte.esgfx.web.service.SingleProductTestGenerator;
 import tr.edu.iyte.esgfx.web.service.TestGenerationResult;
 

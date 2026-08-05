@@ -1,38 +1,35 @@
 package tr.edu.iyte.esgfx.web.service;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
-import tr.edu.iyte.esg.eventsequence.EventSequence;
-import tr.edu.iyte.esg.model.ESG;
-import tr.edu.iyte.esg.model.Vertex;
-import tr.edu.iyte.esgfx.testgeneration.EulerCycleToTestSequenceGenerator;
-import tr.edu.iyte.esgfx.testgeneration.edgecoverage.EdgeCoverageAnalyser;
-import tr.edu.iyte.esgfx.testgeneration.edgecoverage.EulerCycleGeneratorForEdgeCoverage;
-import tr.edu.iyte.esgfx.testgeneration.eventcoverage.EulerCycleGeneratorForEventCoverage;
-import tr.edu.iyte.esgfx.testgeneration.eventcoverage.EventCoverageAnalyser;
-import tr.edu.iyte.esgfx.testgeneration.eventtriplecoverage.TransformedESGFxGenerator;
-import tr.edu.iyte.esgfx.testgeneration.util.StronglyConnectedBalancedESGFxGeneration;
+import tr.edu.iyte.esgfx.api.LoadedSplModel;
+import tr.edu.iyte.esgfx.api.SingleProductTestGenerationAPI;
+import tr.edu.iyte.esgfx.api.SingleProductTestResult;
 
 /**
- * Generates test sequences for a single user-specified product configuration.
- * Dispatches to the engine's event-coverage path (L=1) or edge-coverage path
- * (L=2,3,4), mirroring the per-product body of the engine's
- * {@code RQ1_ComparativeEfficiency_ESGFx_L1} and {@code _L234} pipelines.
+ * Generates test sequences for a single user-specified product configuration
+ * by delegating to the engine's {@code SingleProductTestGenerationAPI}. The
+ * engine owns the pipeline (product derivation, transformation, balancing,
+ * Euler cycle, coverage analysis); this service only adapts the web request
+ * and response shapes.
  */
 @Service
 public class SingleProductTestGenerator {
 
-    private final EsgFxModelLoader loader;
-    private final ConfigurationValidator configurationValidator;
+    /**
+     * The engine names the derived product model after a product ID. A web
+     * request describes one ad-hoc configuration rather than a position in an
+     * enumeration, so the ID is fixed; it affects naming only.
+     */
+    private static final int WEB_PRODUCT_ID = 1;
 
-    public SingleProductTestGenerator(EsgFxModelLoader loader,
-            ConfigurationValidator configurationValidator) {
+    private final EsgFxModelLoader loader;
+
+    public SingleProductTestGenerator(EsgFxModelLoader loader) {
         this.loader = loader;
-        this.configurationValidator = configurationValidator;
     }
 
     public TestGenerationResult generate(String splShortName, Set<String> selectedFeatures,
@@ -42,77 +39,22 @@ public class SingleProductTestGenerator {
             throw new IllegalArgumentException("coverageLength must be in [1, 4], got " + coverageLength);
         }
 
-        EsgFxExample example = loader.load(splShortName);
+        LoadedSplModel model = loader.load(splShortName);
+        Map<String, Boolean> selection =
+                FeatureSelectionMapper.completeSelection(model.getFeatureExpressionMap(), selectedFeatures);
 
-        ConfigurationValidator.ValidationResult validation =
-                configurationValidator.validate(example, selectedFeatures);
-        if (!validation.valid()) {
-            throw new InvalidConfigurationException(validation.errors());
-        }
-
-        long startNanos = System.nanoTime();
-        Set<EventSequence> sequences;
-        double coverage;
-        String coverageType;
-
-        if (coverageLength == 1) {
-            sequences = generateForEventCoverage(example);
-            coverage = new EventCoverageAnalyser()
-                    .analyseEventCoverage(example.esg(), sequences, example.featureExpressionMap());
-            coverageType = "event";
-        } else {
-            sequences = generateForEdgeCoverage(example, coverageLength);
-            coverage = new EdgeCoverageAnalyser()
-                    .analyseEdgeCoverage(example.esg(), sequences, example.featureExpressionMap());
-            coverageType = "edge";
-        }
-        long generationTimeMs = (System.nanoTime() - startNanos) / 1_000_000L;
-
-        List<List<String>> testSequences = new ArrayList<>(sequences.size());
-        int totalEventCount = 0;
-        for (EventSequence sequence : sequences) {
-            List<String> events = new ArrayList<>(sequence.length());
-            for (Vertex vertex : sequence.getEventSequence()) {
-                events.add(vertex.getEvent().getName());
-            }
-            testSequences.add(events);
-            totalEventCount += events.size();
-        }
+        SingleProductTestResult result = SingleProductTestGenerationAPI.generate(
+                model, WEB_PRODUCT_ID, selection, coverageLength);
 
         return new TestGenerationResult(
-                example.shortName(),
+                splShortName,
                 selectedFeatures,
-                coverageLength,
-                coverageType,
-                coverage,
-                testSequences,
-                testSequences.size(),
-                totalEventCount,
-                generationTimeMs);
-    }
-
-    private Set<EventSequence> generateForEventCoverage(EsgFxExample example) {
-        ESG balanced = StronglyConnectedBalancedESGFxGeneration
-                .getStronglyConnectedBalancedESGFxGeneration(example.esg());
-
-        EulerCycleGeneratorForEventCoverage cycleGenerator =
-                new EulerCycleGeneratorForEventCoverage(example.featureExpressionMap());
-        cycleGenerator.generateEulerCycle(balanced);
-        List<Vertex> cycle = cycleGenerator.getEulerCycle();
-
-        return new EulerCycleToTestSequenceGenerator().CESgenerator(cycle);
-    }
-
-    private Set<EventSequence> generateForEdgeCoverage(EsgFxExample example, int coverageLength) {
-        ESG transformed = new TransformedESGFxGenerator()
-                .generateTransformedESGFx(coverageLength, example.esg());
-        ESG balanced = StronglyConnectedBalancedESGFxGeneration
-                .getStronglyConnectedBalancedESGFxGeneration(transformed);
-
-        EulerCycleGeneratorForEdgeCoverage cycleGenerator = new EulerCycleGeneratorForEdgeCoverage();
-        cycleGenerator.generateEulerCycle(balanced);
-        List<Vertex> cycle = cycleGenerator.getEulerCycle();
-
-        return new EulerCycleToTestSequenceGenerator().CESgenerator(cycle);
+                result.getCoverageLength(),
+                result.getCoverageType(),
+                result.getCoveragePercentage(),
+                result.getTestSequencesAsEventNames(),
+                result.getSequenceCount(),
+                result.getTotalEventCount(),
+                result.getGenerationTimeMs());
     }
 }

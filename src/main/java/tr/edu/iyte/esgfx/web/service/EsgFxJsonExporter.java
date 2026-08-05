@@ -10,12 +10,13 @@ import org.springframework.stereotype.Service;
 import tr.edu.iyte.esg.model.ESG;
 import tr.edu.iyte.esg.model.Edge;
 import tr.edu.iyte.esg.model.Vertex;
+import tr.edu.iyte.esgfx.api.LoadedSplModel;
 import tr.edu.iyte.esgfx.model.VertexRefinedByFeatureExpression;
 import tr.edu.iyte.esgfx.model.featuremodel.Feature;
 import tr.edu.iyte.esgfx.model.featuremodel.FeatureModel;
 
 /**
- * Serializes an {@link EsgFxExample} into a Cytoscape.js-compatible JSON
+ * Serializes a {@link LoadedSplModel} into a Cytoscape.js-compatible JSON
  * shape with two top-level sections, {@code esgFx} and {@code featureModel}.
  * Feature-expression annotations live on ESG-Fx vertices in the engine
  * model, so they appear on node data, not on edge data.
@@ -29,12 +30,12 @@ public class EsgFxJsonExporter {
         this.featureLabelLoader = featureLabelLoader;
     }
 
-    public Map<String, Object> export(EsgFxExample example) {
+    public Map<String, Object> export(String splShortName, LoadedSplModel model) {
         Map<String, Object> root = new LinkedHashMap<>();
-        root.put("name", example.shortName());
-        root.put("esgFx", exportEsgFx(example.esg()));
-        root.put("featureModel", exportFeatureModel(example.featureModel()));
-        root.put("featureLabels", featureLabelLoader.labelsFor(example.shortName()));
+        root.put("name", splShortName);
+        root.put("esgFx", exportEsgFx(model.getEsgFx()));
+        root.put("featureModel", exportFeatureModel(model.getFeatureModel()));
+        root.put("featureLabels", featureLabelLoader.labelsFor(splShortName));
         return root;
     }
 
