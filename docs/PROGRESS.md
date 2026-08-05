@@ -26,7 +26,8 @@
 - [x] Regenerated per-product ground truth for SVM, eM and Elevator from the original RQ1 pipelines
 - [x] `SingleProductApiCheck` (engine, no server): 308/308 PASS
 - [x] `scripts/verify_against_ground_truth.py` classifies MATCH / EQUIVALENT / MISMATCH instead of failing on Euler-cycle arrangement differences
-- **Verification:** end-to-end over HTTP, 304/308 exact MATCH, 4 EQUIVALENT (El L=1 — same coverage, same sequence and event counts, different repeated event), 0 MISMATCH, 0 ERROR. The earlier failure — the whole pipeline running on the 150% SPL model instead of the derived product model — is gone, and with it the SVM L=4 timeouts.
+- [x] Pinned the balancing step's edge ordering so generation is reproducible
+- **Verification:** end-to-end over HTTP, 308/308 MATCH, 0 EQUIVALENT, 0 MISMATCH, 0 ERROR, identical across three consecutive runs. The earlier failure — the whole pipeline running on the 150% SPL model instead of the derived product model — is gone, and with it the SVM L=4 timeouts. Regenerating the ground truth twice now yields byte-identical test-sequence files, and the ordering change leaves coverage, sequence counts and event counts unchanged against the pre-change engine on all 308 files.
 
 ## Phase 2: Frontend skeleton + visualization
 - [ ] Thymeleaf base layout with Tailwind via CDN
