@@ -76,8 +76,14 @@
         <section class="bg-white rounded-lg border border-slate-200 flex flex-col">
             <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
                 <h2 class="font-medium">ESG-Fx</h2>
-                <button type="button" data-fit="esg-fx"
-                        class="text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50">Fit</button>
+                <div class="flex items-center gap-2">
+                    <span id="highlight-status" class="text-xs text-slate-500"></span>
+                    <button id="clear-highlight" type="button" disabled
+                            class="text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50
+                                   disabled:opacity-40 disabled:cursor-not-allowed">Clear highlight</button>
+                    <button type="button" data-fit="esg-fx"
+                            class="text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50">Fit</button>
+                </div>
             </div>
             <div id="esg-fx" class="h-[540px]"></div>
             <div class="px-4 py-3 border-t border-slate-200 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600">

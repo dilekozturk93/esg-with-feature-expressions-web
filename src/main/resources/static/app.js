@@ -95,6 +95,24 @@ const esgFxStyle = [
             'arrow-scale': 0.9,
             'curve-style': 'bezier'
         }
+    },
+    {
+        selector: '.dimmed',
+        style: {'opacity': 0.2}
+    },
+    {
+        selector: 'node.highlighted',
+        style: {'background-color': '#ea580c', 'border-width': 3, 'border-color': '#7c2d12', 'z-index': 10}
+    },
+    {
+        selector: 'edge.highlighted',
+        style: {
+            'line-color': '#ea580c',
+            'target-arrow-color': '#ea580c',
+            'width': 3,
+            'opacity': 1,
+            'z-index': 10
+        }
     }
 ];
 
@@ -339,7 +357,127 @@ async function validateSelection() {
     }
 }
 
+// Guards the backtracking search below against a pathological model; the walks
+// we resolve for the bundled examples finish in well under a hundred steps.
+const WALK_STEP_BUDGET = 20000;
+
+function normalizeEventName(name) {
+    return name.trim().replace(/\s+/g, '_');
+}
+
+function stripVertexSuffix(token) {
+    return token.replace(/_\d+$/, '');
+}
+
+// L=1 and L=2 sequences carry one event per step. L=3 and L=4 carry overlapping
+// tuples — consecutive tuples share all but one element — so the walk is the
+// first tuple followed by the last element of every tuple after it.
+function eventWalkOf(sequence) {
+    const tuples = sequence.map((token) => token.split(':').map(stripVertexSuffix));
+    if (!tuples.length) {
+        return [];
+    }
+
+    const walk = tuples[0].slice();
+    for (let i = 1; i < tuples.length; i++) {
+        const previous = tuples[i - 1];
+        const current = tuples[i];
+        const overlaps = current.length > 1
+            && previous.slice(1).join(' ') === current.slice(0, -1).join(' ');
+        if (overlaps) {
+            walk.push(current[current.length - 1]);
+        } else {
+            walk.push.apply(walk, current);
+        }
+    }
+    return walk;
+}
+
+// Event labels repeat across an ESG-Fx — SVM has two distinct 'take' vertices —
+// so a sequence cannot be located by matching names one at a time. The walk is
+// resolved by following real edges and backtracking out of dead ends, which
+// also gives us the traversed edges rather than just the vertices.
+function resolveWalk(graph, events) {
+    if (!events.length) {
+        return null;
+    }
+    let steps = 0;
+
+    function extend(nodePath, edgePath) {
+        if (nodePath.length === events.length) {
+            return {nodes: nodePath, edges: edgePath};
+        }
+        if (++steps > WALK_STEP_BUDGET) {
+            return null;
+        }
+
+        const wanted = events[nodePath.length];
+        const outgoing = nodePath[nodePath.length - 1].outgoers('edge');
+
+        for (let i = 0; i < outgoing.length; i++) {
+            const edge = outgoing[i];
+            const target = edge.target();
+            if (normalizeEventName(target.data('label')) !== wanted) {
+                continue;
+            }
+            const resolved = extend(nodePath.concat(target), edgePath.concat(edge));
+            if (resolved) {
+                return resolved;
+            }
+        }
+        return null;
+    }
+
+    const startCandidates = graph.nodes().filter(
+        (node) => normalizeEventName(node.data('label')) === events[0]);
+
+    for (let i = 0; i < startCandidates.length; i++) {
+        const resolved = extend([startCandidates[i]], []);
+        if (resolved) {
+            return resolved;
+        }
+    }
+    return null;
+}
+
+function clearHighlight() {
+    if (esgFxGraph) {
+        esgFxGraph.elements().removeClass('highlighted dimmed');
+    }
+    document.querySelectorAll('#results-body tr').forEach((row) => {
+        row.classList.remove('bg-orange-50');
+    });
+    document.getElementById('clear-highlight').disabled = true;
+    document.getElementById('highlight-status').textContent = '';
+}
+
+function highlightSequence(sequence, row) {
+    if (!esgFxGraph) {
+        return;
+    }
+    clearHighlight();
+
+    const events = eventWalkOf(sequence);
+    const resolved = resolveWalk(esgFxGraph, events);
+    const status = document.getElementById('highlight-status');
+
+    if (!resolved) {
+        status.textContent = 'no matching path on this ESG-Fx';
+        return;
+    }
+
+    esgFxGraph.elements().addClass('dimmed');
+    esgFxGraph.collection(resolved.nodes.concat(resolved.edges))
+        .removeClass('dimmed')
+        .addClass('highlighted');
+
+    row.classList.add('bg-orange-50');
+    document.getElementById('clear-highlight').disabled = false;
+    status.textContent = events.length + ' events highlighted';
+}
+
 function clearResults() {
+    clearHighlight();
     latestResult = null;
     downloadButton.disabled = true;
     document.getElementById('results').classList.add('hidden');
@@ -369,6 +507,9 @@ function renderResults(result) {
     body.replaceChildren();
     result.testSequences.forEach((sequence, index) => {
         const row = document.createElement('tr');
+        row.className = 'cursor-pointer hover:bg-slate-50';
+        row.title = 'Highlight this sequence on the ESG-Fx';
+        row.addEventListener('click', () => highlightSequence(sequence, row));
 
         const number = document.createElement('td');
         number.className = 'px-4 py-2 text-slate-500 align-top';
@@ -463,6 +604,7 @@ function downloadCsv() {
 
 generateButton.addEventListener('click', generate);
 downloadButton.addEventListener('click', downloadCsv);
+document.getElementById('clear-highlight').addEventListener('click', clearHighlight);
 document.getElementById('coverage-length').addEventListener('change', clearResults);
 
 document.getElementById('example-select').addEventListener('change', (event) => {

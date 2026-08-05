@@ -55,11 +55,11 @@
 - **Verification:** Two products in one request return results matching two separate single-product calls
 
 ## Phase 4: Highlight + polish
-- [ ] Click sequence → highlight on ESG-Fx
-- [ ] Clear highlight button
-- [ ] Error states styled (red banners, no raw stack traces)
-- [ ] Loading spinner during generation
-- **Verification:** Highlight visually correct against manual trace
+- [x] Click sequence → highlight on ESG-Fx, everything else dimmed
+- [x] Clear highlight button
+- [x] Error states styled (red banners, no raw stack traces)
+- [ ] Loading spinner during generation (button shows "Generating…" for now)
+- **Verification:** Event labels repeat within an ESG-Fx — SVM has two distinct `take` vertices — so a sequence is located by following real edges and backtracking, not by matching names. Checked that SVM's walk highlights `take` v13 (reachable from `open`) and leaves v11 dimmed. Then resolved *every* sequence of every bundled example at every coverage length against its ESG-Fx: SVM 4 levels, e-Mail 2 configurations × 4 levels, Elevator 4 levels (42 sequences at L=4). Zero unresolved, and every walk had exactly `events − 1` edges, so each one is a continuous path. L=3/L=4 composite tokens decompose to the same walk as L=1.
 
 ## Phase 5: Deploy + materials
 - [ ] Dockerfile or fat jar config
