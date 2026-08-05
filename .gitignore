@@ -20,3 +20,6 @@ buildNumber.properties
 PROJECT_CONTEXT.md
 .claude/
 *.claude-session
+
+# Local verification artefacts
+verification-reports/

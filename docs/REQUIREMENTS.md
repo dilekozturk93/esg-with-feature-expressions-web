@@ -1,124 +1,175 @@
 # ESG-Fx Web Tool — Requirements
 
-## Target conference
+## Project context
 
-SPLC 2026 Tool Track. Deliverables required:
+A web-based tool for model-based test generation for Software Product 
+Lines using Event Sequence Graphs with Feature Expressions (ESG-Fx). 
+No fixed external deadline — the priority is a correct, well-architected 
+tool. A future venue (conference tool track or similar) may be targeted 
+once the tool is mature.
+
+Deliverables we still want:
 - Public GitHub repo (MIT licensed)
 - Live demo URL
-- 4-page paper (IEEE format, to be confirmed)
-- 3-5 minute demo video
+- Demo video
 
 ## User personas
 
-**Primary:** SPL test engineer or researcher familiar with feature models and basic testing concepts. Has used FeatureIDE before.
+**Primary:** SPL test engineer or researcher familiar with feature 
+models and basic testing concepts.
 
-**Secondary:** Conference reviewer who wants to verify the tool works in 5 minutes without reading a manual.
+**Secondary:** Someone evaluating the tool who wants to see it work in 
+a few minutes without reading a manual.
 
 ## Functional requirements
 
-### FR1: Example loading
-- Three preloaded examples: SVM (4 features), e-Mail (5 features), Elevator (9 features)
-- Loaded with a single dropdown selection — no upload required for examples
-- Examples are loaded from the submodule at `lib/esg-core/files/Cases/<SPLName>/`
+### FR1: Model input — three modes
 
-### FR2: Custom upload
-- Feature model: FeatureIDE XML format (`.xml`)
-- ESG-Fx model: our format (TBD — match what the original Java repo uses)
-- File size limit: 1MB per file
-- Validation errors shown inline, not as 500 errors
+The tool always works with two models: a feature model and an ESG-Fx. 
+The user supplies them in one of three ways:
 
-### FR3: Feature model visualization
-- Hierarchical tree, top-down
-- Node styling indicates: mandatory (filled circle), optional (empty circle), or-group, alternative-group
-- Cytoscape.js with `dagre` layout
+**Mode 1 — Preloaded SPL.** User picks a bundled example (SVM, e-Mail, 
+Elevator). Both models ship with the tool. Preloaded feature models use 
+full human-readable feature names, so no short-code label mapping is 
+needed.
 
-### FR4: ESG-Fx visualization
-- Directed graph
-- Vertices labeled with feature expressions (e.g., `s`, `t`, `!f ∧ c`)
-- Pseudo start and pseudo end vertices marked distinctly (e.g., 
-  double border or distinct shape)
-- Hover on a vertex shows its full feature expression in a tooltip
-- Cytoscape.js with `dagre` layout
+**Mode 2 — Upload.** User uploads their own feature model file and their 
+own ESG-Fx file.
 
-### FR5: Coverage length selection
-- Radio buttons: L=1, L=2, L=3, L=4
-- **Default: L=2**
-- Backend dispatches based on selected level:
-  - L=1 → `EulerCycleGeneratorForEventCoverage` (event coverage)
-  - L=2, 3, 4 → `EulerCycleGeneratorForEdgeCoverage` (edge coverage at the 
-    corresponding level)
+**Mode 3 — Draw in-browser.** User constructs the feature model and the 
+ESG-Fx directly in the tool. Lowest priority — implemented last.
 
-### FR6: Product configuration selection
-- Mode A: "Single configuration" — checkboxes over all features
-- Mode B: "All valid products" — only enabled if feature count ≤ 10
-- Mode A is default
+Regardless of mode, the result is one feature model plus one ESG-Fx 
+delivered to the backend.
+
+### FR2: Test generation modes
+
+After the models are loaded, the user picks a coverage length (L=1..4) 
+and one of three generation modes:
+
+**Mode A — Specific products.** User defines one product by selecting 
+features, optionally adds more products via a "+" control, then 
+generates tests for that set. Results are shown per product and can be 
+downloaded.
+
+**Mode B — All products.** A single action that generates tests for 
+every valid product configuration of the feature model.
+
+**Mode C — Sampled products.** Generate tests for a sample of 
+configurations drawn from the feature model. Sampling integration 
+(e.g., a uniform sampler such as UniGen) is a later-stage feature.
+
+### FR3: Configuration count
+
+As soon as a feature model is loaded, the backend computes and reports 
+the number of valid product configurations. This informs the user and 
+gates Mode B for very large models.
+
+### FR4: Feature model visualization
+
+- Hierarchical tree, top-to-bottom
+- Node styling distinguishes mandatory, optional, or-group, 
+  alternative-group, abstract, and root
+- Cytoscape.js with a tree/dagre layout
+
+### FR5: ESG-Fx visualization
+
+- Directed graph, laid out left-to-right
+- Vertices labeled with their event name; feature expression shown on 
+  hover
+- Pseudo start and pseudo end vertices marked distinctly
+- Cytoscape.js with a dagre layout
+
+### FR6: Coverage length selection
+
+- Selectable L=1, L=2, L=3, L=4
+- Default: L=2
+- L=1 uses event coverage; L=2/3/4 use edge coverage at the 
+  corresponding level
 
 ### FR7: Configuration validation
-- Runs on every checkbox change (debounced 300ms)
-- Backend endpoint: POST /api/config/validate
-- Shows specific error: "Feature X is mandatory but not selected", "Features Y and Z are in alternative group", etc.
-- "Generate" button disabled while invalid
+
+- A feature selection is validated against the feature model before 
+  test generation
+- Invalid selections are reported with a clear message and block 
+  generation
 
 ### FR8: Test generation
-- POST /api/generate with feature model, ESG-Fx, coverage length, and a 
-  single product configuration (set of selected features)
-- Returns list of test sequences
-- 60-second hard timeout
 
-**Engine adaptation needed:** The existing pipelines in 
-`src/tr/edu/iyte/esgfx/cases/RQ2_ExtremeScalability_L1.java` and 
-`src/tr/edu/iyte/esgfx/cases/RQ2_ExtremeScalability_L234.java` iterate over 
-all valid product configurations of the feature model. For the web tool we 
-need a single-product variant: take the user-selected feature set, set the 
-corresponding feature truth values, then invoke the appropriate 
-EulerCycleGenerator (Event or Edge based on L) once. Implement this adapter 
-as a new class in the service layer of the web project; do not modify the 
-submodule.
+- The backend generates tests by calling the engine's programmatic 
+  API (see "Engine API layer" below)
+- Returns, per product: the selected configuration, the generated test 
+  sequences, sequence count, total event count, and the coverage 
+  percentage
+- A request that runs too long is bounded by a timeout
 
 ### FR9: Result display
-- For the selected product configuration, show:
-  - Selected features (comma-separated)
-  - Number of test sequences generated
-  - Total event count across all sequences
-  - **Coverage metric:** event coverage % for L=1, edge coverage % for 
-    L=2/3/4 (label correctly based on selected L)
-  - The test sequences themselves, each shown as an ordered list of events 
-    (e.g., `pay → change → soda → serveSoda → open → take → close`)
-- Click on a test sequence row → highlight that sequence's traversed 
-  vertices and edges on the ESG-Fx graph
-- "Download CSV" button exports the full result
 
-### FR10: Sequence highlighting (critical for paper)
-- Selecting a sequence highlights its vertices and edges on ESG-Fx
-- Use a distinct color (e.g., orange) that contrasts with the default styling
-- "Clear highlight" button
+- For each product: selected features, number of test sequences, total 
+  event count, coverage metric (event coverage for L=1, edge coverage 
+  for L=2/3/4), and the test sequences themselves as ordered event lists
+- Clicking a test sequence highlights its traversed path on the ESG-Fx
+- Results downloadable as CSV
+
+### FR10: Sequence highlighting
+
+- Selecting a sequence highlights its vertices and edges on the ESG-Fx
+- A distinct highlight color, with a "clear highlight" action
+
+## Engine API layer
+
+Single-product test generation is exposed as a first-class programmatic 
+API inside the engine (package `tr.edu.iyte.esgfx.api`), not 
+re-implemented in the web layer. The web backend is a thin wrapper over 
+this API.
+
+- `SingleProductTestGenerationAPI` — load a model, validate a 
+  configuration, generate tests for one product, count valid 
+  configurations.
+- `MultiProductTestGenerationAPI` — generate for an explicit set of 
+  product configurations; delegates to the single-product API.
+- `AllProductsTestGenerationAPI` — generate for every valid 
+  configuration; delegates to the single-product API.
+
+The original research pipelines (RQ1/RQ2 case classes, 
+TestSequenceRecorder, and the rest) are left untouched. The API is a 
+new, additive entry point. It lives in the engine repository, which is 
+consumed here as a git submodule.
 
 ## Non-functional requirements
 
 ### NFR1: Browser support
-- Chrome 100+, Firefox 100+. No IE, no Safari testing in MVP.
+
+Chrome and Firefox, recent versions. No IE; Safari untested.
 
 ### NFR2: Response times
-- Page load: < 2s
-- Single config test gen: < 5s for SVM/eM/BA examples
-- Graph rendering: < 1s for ≤50 vertices
+
+- Page load under ~2s
+- Single-product generation under ~5s for the bundled examples
+- Graph rendering under ~1s for small models
 
 ### NFR3: Statelessness
-- No session state, no database. Every request self-contained (feature model + ESG-Fx + params in payload, or temporarily stored in server memory per-request only).
+
+No session state, no database. Each request is self-contained.
 
 ### NFR4: Deployment
-- Single Docker container or fat jar
-- Deployable on Render.com free tier
-- HTTPS only (Render handles this)
 
-## Constraints from the existing Java codebase
+- Single fat jar or container
+- Deployable on a free-tier host
+- HTTPS
 
-- Reuse the engine from https://github.com/esg4aspl/esg-with-feature-expressions
-- Add it as a Maven local dependency OR copy `src/tr/edu/iyte/esgfx` into this project
-- TBD after inspecting: class names, input/output types, how to invoke programmatically
+## Build order (priority)
 
-## MVP cut line (must work by June 1)
-
-FR1, FR3, FR4, FR5, FR6 (mode A only), FR7, FR8 (single product mode), FR9, FR10.
-
-Deferred to V1.1: FR2 (custom upload), FR6 mode B (all products).
+1. Engine API: `SingleProductTestGenerationAPI`, verified against the 
+   original pipeline's ground-truth test sequences.
+2. Web backend: thin wrapper exposing the API over REST.
+3. Preloaded SPL mode (Mode 1) plus visualization of both models.
+4. Specific-products generation (Mode A) with results table and CSV.
+5. Sequence highlighting on the ESG-Fx.
+6. All-products mode (Mode B) with configuration-count gating, plus 
+   `AllProductsTestGenerationAPI`.
+7. Multi-product API (`MultiProductTestGenerationAPI`) wired to Mode A's 
+   multi-product UI.
+8. Upload mode (Mode 2).
+9. Sampled mode (Mode C) — sampler integration.
+10. Draw-in-browser mode (Mode 3).
