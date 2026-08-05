@@ -2,16 +2,97 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>ESG-Fx Web Tool</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
 </head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center">
-    <div class="bg-white shadow-md rounded-lg px-8 py-6 max-w-md w-full">
-        <h1 class="text-2xl font-semibold text-slate-800">ESG-Fx Web Tool</h1>
-        <p class="mt-2 text-sm text-slate-600">
-            Model-based test generation for Software Product Lines using
-            Event Sequence Graphs with Feature Expressions.
-        </p>
+<body class="bg-slate-100 text-slate-800">
+
+<div class="max-w-[1600px] mx-auto px-6 py-6">
+
+    <header class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-semibold">ESG-Fx Web Tool</h1>
+            <p class="text-sm text-slate-600 mt-1">
+                Model-based test generation for Software Product Lines using
+                Event Sequence Graphs with Feature Expressions.
+            </p>
+        </div>
+        <label class="text-sm">
+            <span class="block text-slate-600 mb-1">Example SPL</span>
+            <select id="example-select"
+                    class="border border-slate-300 rounded-md px-3 py-2 bg-white text-sm min-w-[14rem]">
+                <option value="svm">Soda Vending Machine (SVM)</option>
+                <option value="em">e-Mail (eM)</option>
+                <option value="el">Elevator (El)</option>
+            </select>
+        </label>
+    </header>
+
+    <section class="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
+            <div class="text-slate-500">Valid configurations</div>
+            <div id="stat-configs" class="text-xl font-semibold mt-0.5">&mdash;</div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
+            <div class="text-slate-500">Features</div>
+            <div id="stat-features" class="text-xl font-semibold mt-0.5">&mdash;</div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
+            <div class="text-slate-500">ESG-Fx vertices</div>
+            <div id="stat-vertices" class="text-xl font-semibold mt-0.5">&mdash;</div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 px-4 py-3">
+            <div class="text-slate-500">ESG-Fx edges</div>
+            <div id="stat-edges" class="text-xl font-semibold mt-0.5">&mdash;</div>
+        </div>
+    </section>
+
+    <div id="error-banner"
+         class="hidden mt-5 rounded-lg border border-red-300 bg-red-50 text-red-800 px-4 py-3 text-sm"></div>
+
+    <div class="mt-5 grid grid-cols-1 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-5">
+
+        <section class="bg-white rounded-lg border border-slate-200 flex flex-col">
+            <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <h2 class="font-medium">Feature model</h2>
+                <button type="button" data-fit="feature-model"
+                        class="text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50">Fit</button>
+            </div>
+            <div id="feature-model" class="h-[540px]"></div>
+            <div class="px-4 py-3 border-t border-slate-200 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600">
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#1e293b"></span>root</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#0f766e"></span>mandatory</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#0ea5e9"></span>optional</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#d97706"></span>or-group</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#7c3aed"></span>alternative-group</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-white border-2 border-dashed border-slate-500"></span>abstract</span>
+            </div>
+        </section>
+
+        <section class="bg-white rounded-lg border border-slate-200 flex flex-col">
+            <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <h2 class="font-medium">ESG-Fx</h2>
+                <button type="button" data-fit="esg-fx"
+                        class="text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50">Fit</button>
+            </div>
+            <div id="esg-fx" class="h-[540px]"></div>
+            <div class="px-4 py-3 border-t border-slate-200 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600">
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#16a34a"></span>pseudo start</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#dc2626"></span>pseudo end</span>
+                <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#334155"></span>event</span>
+                <span class="text-slate-500">Hover a vertex to see its feature expression.</span>
+            </div>
+        </section>
     </div>
+</div>
+
+<div id="tooltip"
+     class="hidden fixed z-50 pointer-events-none rounded-md bg-slate-900 text-white text-xs px-2.5 py-1.5 shadow-lg max-w-xs"></div>
+
+<script th:src="@{/app.js}" src="/app.js"></script>
 </body>
 </html>
