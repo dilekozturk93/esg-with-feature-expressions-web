@@ -40,13 +40,19 @@
 - **Verification:** Driven in Chrome against all three examples. Both graphs render and re-render on switch, hover shows the feature expression, no console errors. Configuration counts (12/23/42) match the ground-truth product counts exactly. Regression still 308/308 MATCH under the new contract.
 - **Note:** Tailwind's Play CDN generates its stylesheet at runtime, so a graph can be built before its container has a height. Graphs are fitted a frame after `layoutstop` and `cy.resize()` is called first; without that, wide graphs render cropped.
 
-## Phase 3: Generate tests
-- [ ] Feature checkbox UI
-- [ ] Config validation endpoint + frontend integration
-- [ ] Coverage length selector
-- [ ] Generate button → results table
-- [ ] CSV download
-- **Verification:** Generate tests for SVM with the `s` feature selected, get the same output as the engine API
+## Phase 3: Generate tests (Mode A, single product)
+- [x] Feature checkbox UI, built from the `features` list on the example payload
+- [x] Config validation wired to `POST /api/config/validate`, debounced 300ms, blocks Generate while invalid
+- [x] Coverage length selector, default L=2
+- [x] Generate button → results table
+- [x] CSV download
+- **Verification:** Driven in Chrome. With no feature ticked the configuration is reported invalid and Generate stays disabled; ticking `soda` turns it valid. Generating for SVM/`s` gives 100% coverage at every L, and the coverage metric is labelled event coverage at L=1 and edge coverage at L=2/3/4. L=1 returns the reference sequence (pay → change → soda → serveSoda → open → take → close); L=4 returns 5 event triples, matching the ground truth. CSV exports 9 columns per sequence as `SVM_P1_L4.csv`. Regression still 308/308 MATCH.
+- **Note:** sequences keep the engine's `_N` vertex suffix at L≥2. That suffix is the vertex identity rather than part of the event name, and FR10's highlighting needs it to map a sequence back onto the graph, so it is deliberately not stripped.
+
+## Phase 3B: Multi-product (Mode A "+" control)
+- [ ] `MultiProductTestGenerationAPI` in the engine
+- [ ] "+" control to add product 2, 3, … and results grouped per product
+- **Verification:** Two products in one request return results matching two separate single-product calls
 
 ## Phase 4: Highlight + polish
 - [ ] Click sequence → highlight on ESG-Fx

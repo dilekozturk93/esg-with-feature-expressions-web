@@ -35,8 +35,24 @@ public class EsgFxJsonExporter {
         root.put("name", splShortName);
         root.put("esgFx", exportEsgFx(model.getEsgFx()));
         root.put("featureModel", exportFeatureModel(model.getFeatureModel()));
+        root.put("features", selectableFeatures(model));
         root.put("featureLabels", featureLabelLoader.labelsFor(splShortName));
         return root;
+    }
+
+    /**
+     * The feature names a configuration is expressed in. These are the keys the
+     * generation API expects, which is not the same as the feature model's
+     * nodes — abstract features have no truth value of their own.
+     */
+    private List<String> selectableFeatures(LoadedSplModel model) {
+        List<String> features = new ArrayList<>();
+        for (String featureName : model.getFeatureExpressionMap().keySet()) {
+            if (!featureName.contains("!")) {
+                features.add(featureName);
+            }
+        }
+        return features;
     }
 
     private Map<String, Object> exportEsgFx(ESG esg) {

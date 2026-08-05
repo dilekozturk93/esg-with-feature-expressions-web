@@ -98,8 +98,14 @@ const esgFxStyle = [
     }
 ];
 
+const VALIDATION_DEBOUNCE_MS = 300;
+
 let featureModelGraph = null;
 let esgFxGraph = null;
+let currentSpl = null;
+let currentFeatureLabels = {};
+let latestResult = null;
+let validationTimer = null;
 
 const tooltip = document.getElementById('tooltip');
 const errorBanner = document.getElementById('error-banner');
@@ -210,9 +216,61 @@ function renderEsgFx(esgFx) {
     esgFxGraph.on('mouseout', 'node', hideTooltip);
 }
 
+function displayNameFor(featureName) {
+    return currentFeatureLabels[featureName] || featureName;
+}
+
+function renderFeatureCheckboxes(features) {
+    const container = document.getElementById('feature-checkboxes');
+    container.replaceChildren();
+
+    features.forEach((featureName) => {
+        const label = document.createElement('label');
+        label.className = 'inline-flex items-center gap-2 text-sm';
+
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = featureName;
+        input.addEventListener('change', scheduleValidation);
+
+        const text = document.createElement('span');
+        const display = displayNameFor(featureName);
+        text.textContent = display;
+        if (display !== featureName) {
+            const engineName = document.createElement('span');
+            engineName.className = 'text-slate-400 ml-1';
+            engineName.textContent = '(' + featureName + ')';
+            text.appendChild(engineName);
+        }
+
+        label.append(input, text);
+        container.appendChild(label);
+    });
+}
+
+function selectedFeatureNames() {
+    return Array.from(document.querySelectorAll('#feature-checkboxes input:checked'))
+        .map((input) => input.value);
+}
+
+// The API is handed every feature, not just the ticked ones, so it never has to
+// infer a value for one the page left out.
+function currentSelection() {
+    const selection = {};
+    document.querySelectorAll('#feature-checkboxes input').forEach((input) => {
+        selection[input.value] = input.checked;
+    });
+    return selection;
+}
+
+function selectedCoverageLength() {
+    return Number(document.querySelector('input[name="coverage-length"]:checked').value);
+}
+
 async function loadExample(name) {
     clearError();
     hideTooltip();
+    clearResults();
     try {
         const response = await fetch('/api/example/' + name);
         if (!response.ok) {
@@ -221,17 +279,191 @@ async function loadExample(name) {
         }
         const payload = await response.json();
 
-        renderFeatureModel(payload.featureModel, payload.featureLabels || {});
+        currentSpl = payload.name;
+        currentFeatureLabels = payload.featureLabels || {};
+
+        renderFeatureModel(payload.featureModel, currentFeatureLabels);
         renderEsgFx(payload.esgFx);
+        renderFeatureCheckboxes(payload.features);
 
         setStat('stat-configs', payload.configurationCount.toLocaleString());
         setStat('stat-features', payload.featureModel.nodes.length);
         setStat('stat-vertices', payload.esgFx.nodes.length);
         setStat('stat-edges', payload.esgFx.edges.length);
+
+        validateSelection();
     } catch (error) {
         showError('Could not load the example: ' + error.message);
     }
 }
+
+const generateButton = document.getElementById('generate-button');
+const validationStatus = document.getElementById('validation-status');
+const downloadButton = document.getElementById('download-csv');
+
+function setValidationStatus(state, message) {
+    const colours = {
+        valid: 'text-emerald-700',
+        invalid: 'text-red-700',
+        pending: 'text-slate-500'
+    };
+    validationStatus.className = 'text-sm ' + colours[state];
+    validationStatus.textContent = message;
+    generateButton.disabled = state !== 'valid';
+}
+
+function scheduleValidation() {
+    setValidationStatus('pending', 'Checking configuration…');
+    clearTimeout(validationTimer);
+    validationTimer = setTimeout(validateSelection, VALIDATION_DEBOUNCE_MS);
+}
+
+async function validateSelection() {
+    if (!currentSpl) {
+        return;
+    }
+    try {
+        const response = await fetch('/api/config/validate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({splName: currentSpl, featureSelection: currentSelection()})
+        });
+        const body = await response.json();
+        if (body.valid) {
+            setValidationStatus('valid', 'Configuration is valid.');
+        } else {
+            setValidationStatus('invalid', (body.errors || ['Configuration is not valid.']).join(' '));
+        }
+    } catch (error) {
+        setValidationStatus('invalid', 'Could not validate the configuration: ' + error.message);
+    }
+}
+
+function clearResults() {
+    latestResult = null;
+    downloadButton.disabled = true;
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('results-empty').classList.remove('hidden');
+    document.getElementById('results-body').replaceChildren();
+}
+
+function renderResults(result) {
+    latestResult = result;
+
+    document.getElementById('result-coverage-label').textContent =
+        result.coverageType === 'event' ? 'Event coverage' : 'Edge coverage';
+    document.getElementById('result-coverage').textContent =
+        result.coveragePercentage.toFixed(2).replace(/\.00$/, '') + '%';
+    document.getElementById('result-sequences').textContent = result.sequenceCount;
+    document.getElementById('result-events').textContent = result.totalEventCount;
+    document.getElementById('result-time').textContent = result.generationTimeMs + ' ms';
+    document.getElementById('result-product').textContent = result.productId;
+
+    const enabled = Object.keys(result.featureSelection)
+        .filter((name) => result.featureSelection[name])
+        .map(displayNameFor);
+    document.getElementById('result-features').textContent =
+        enabled.length ? enabled.join(', ') : 'no features selected';
+
+    const body = document.getElementById('results-body');
+    body.replaceChildren();
+    result.testSequences.forEach((sequence, index) => {
+        const row = document.createElement('tr');
+
+        const number = document.createElement('td');
+        number.className = 'px-4 py-2 text-slate-500 align-top';
+        number.textContent = index + 1;
+
+        const length = document.createElement('td');
+        length.className = 'px-4 py-2 text-slate-500 align-top';
+        length.textContent = sequence.length;
+
+        const events = document.createElement('td');
+        events.className = 'px-4 py-2 font-mono text-xs';
+        events.textContent = sequence.join(' → ');
+
+        row.append(number, length, events);
+        body.appendChild(row);
+    });
+
+    document.getElementById('results-empty').classList.add('hidden');
+    document.getElementById('results').classList.remove('hidden');
+    downloadButton.disabled = false;
+}
+
+async function generate() {
+    clearError();
+    generateButton.disabled = true;
+    const originalLabel = generateButton.textContent;
+    generateButton.textContent = 'Generating…';
+
+    try {
+        const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                splName: currentSpl,
+                featureSelection: currentSelection(),
+                coverageLength: selectedCoverageLength()
+            })
+        });
+        const body = await response.json();
+        if (!response.ok) {
+            const message = body.errors ? body.errors.join(' ') : (body.error || 'Generation failed.');
+            throw new Error(message);
+        }
+        renderResults(body);
+    } catch (error) {
+        clearResults();
+        showError('Could not generate tests: ' + error.message);
+    } finally {
+        generateButton.textContent = originalLabel;
+        generateButton.disabled = false;
+    }
+}
+
+function csvCell(value) {
+    return '"' + String(value).replace(/"/g, '""') + '"';
+}
+
+function downloadCsv() {
+    if (!latestResult) {
+        return;
+    }
+    const enabled = Object.keys(latestResult.featureSelection)
+        .filter((name) => latestResult.featureSelection[name]);
+
+    const rows = [['spl', 'productId', 'features', 'coverageLength', 'coverageType',
+        'coveragePercentage', 'sequenceIndex', 'eventCount', 'sequence']];
+
+    latestResult.testSequences.forEach((sequence, index) => {
+        rows.push([
+            latestResult.splShortName,
+            latestResult.productId,
+            enabled.join(' '),
+            latestResult.coverageLength,
+            latestResult.coverageType,
+            latestResult.coveragePercentage,
+            index + 1,
+            sequence.length,
+            sequence.join(' -> ')
+        ]);
+    });
+
+    const csv = rows.map((row) => row.map(csvCell).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = latestResult.splShortName + '_P' + latestResult.productId
+        + '_L' + latestResult.coverageLength + '.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
+generateButton.addEventListener('click', generate);
+downloadButton.addEventListener('click', downloadCsv);
+document.getElementById('coverage-length').addEventListener('change', clearResults);
 
 document.getElementById('example-select').addEventListener('change', (event) => {
     loadExample(event.target.value);
