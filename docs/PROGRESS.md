@@ -30,11 +30,15 @@
 - **Verification:** end-to-end over HTTP, 308/308 MATCH, 0 EQUIVALENT, 0 MISMATCH, 0 ERROR, identical across three consecutive runs. The earlier failure — the whole pipeline running on the 150% SPL model instead of the derived product model — is gone, and with it the SVM L=4 timeouts. Regenerating the ground truth twice now yields byte-identical test-sequence files, and the ordering change leaves coverage, sequence counts and event counts unchanged against the pre-change engine on all 308 files.
 
 ## Phase 2: Frontend skeleton + visualization
-- [ ] Thymeleaf base layout with Tailwind via CDN
-- [ ] Cytoscape.js loaded, renders SVM ESG-Fx on page load
-- [ ] Dropdown to switch between SVM/eM/Elevator examples
-- [ ] Feature model rendered as tree
-- **Verification:** Visit /, see both graphs render, switching examples works
+- [x] HTTP contract moved to a complete `featureSelection` map, response carries `productId`
+- [x] `POST /api/config/validate` (FR7) and `configurationCount` on the example payload (FR3)
+- [x] `GET /api/example/{name}` generic, so the dropdown drives it
+- [x] Thymeleaf base layout with Tailwind via CDN
+- [x] Cytoscape.js + dagre, ESG-Fx left-to-right with pseudo start/end marked and feature expression on hover
+- [x] Feature model rendered as a top-down tree, styled by root/mandatory/optional/or/alternative/abstract
+- [x] Dropdown to switch between SVM/eM/Elevator examples
+- **Verification:** Driven in Chrome against all three examples. Both graphs render and re-render on switch, hover shows the feature expression, no console errors. Configuration counts (12/23/42) match the ground-truth product counts exactly. Regression still 308/308 MATCH under the new contract.
+- **Note:** Tailwind's Play CDN generates its stylesheet at runtime, so a graph can be built before its container has a height. Graphs are fitted a frame after `layoutstop` and `cy.resize()` is called first; without that, wide graphs render cropped.
 
 ## Phase 3: Generate tests
 - [ ] Feature checkbox UI

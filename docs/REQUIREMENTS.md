@@ -29,9 +29,11 @@ The tool always works with two models: a feature model and an ESG-Fx.
 The user supplies them in one of three ways:
 
 **Mode 1 — Preloaded SPL.** User picks a bundled example (SVM, e-Mail, 
-Elevator). Both models ship with the tool. Preloaded feature models use 
-full human-readable feature names, so no short-code label mapping is 
-needed.
+Elevator). Both models ship with the tool. SVM and e-Mail name their 
+features with short codes (`s`, `t`, `ad`, `au`, …), so a label mapping 
+ships with the tool and the UI shows the readable name; Elevator already 
+uses long names. The engine and the HTTP layer always speak engine names — 
+only the UI translates.
 
 **Mode 2 — Upload.** User uploads their own feature model file and their 
 own ESG-Fx file.
@@ -125,16 +127,41 @@ this API.
 
 - `SingleProductTestGenerationAPI` — load a model, validate a 
   configuration, generate tests for one product, count valid 
-  configurations.
+  configurations. **Implemented**, verified 308/308 against the RQ1 
+  pipelines' ground truth.
 - `MultiProductTestGenerationAPI` — generate for an explicit set of 
-  product configurations; delegates to the single-product API.
+  product configurations; delegates to the single-product API. *Not yet 
+  implemented (build order step 7).*
 - `AllProductsTestGenerationAPI` — generate for every valid 
-  configuration; delegates to the single-product API.
+  configuration; delegates to the single-product API. *Not yet 
+  implemented (build order step 6).*
 
 The original research pipelines (RQ1/RQ2 case classes, 
 TestSequenceRecorder, and the rest) are left untouched. The API is a 
 new, additive entry point. It lives in the engine repository, which is 
 consumed here as a git submodule.
+
+## HTTP contract
+
+`GET /api/example/{svm|em|el}` returns the ESG-Fx and feature model as 
+Cytoscape.js elements, the short-code label mapping, and 
+`configurationCount` (FR3).
+
+`POST /api/config/validate` (FR7) and `POST /api/generate` (FR8) both take:
+
+```json
+{"splName": "SVM", "featureSelection": {"s": true, "t": false, "f": false, "c": false}}
+```
+
+`featureSelection` maps engine-level feature names to truth values rather 
+than listing the selected ones, so the caller and the engine can never 
+disagree about a feature that went unmentioned. Names absent from the map 
+default to false; names the model does not know are rejected. 
+`/api/generate` additionally takes `coverageLength` and an optional 
+`productId` that is echoed back, so a multi-product UI can match responses 
+to the products the user ordered. The response carries `productId`, 
+`coveragePercentage`, `coverageType`, `sequenceCount`, `totalEventCount`, 
+`testSequences` and `generationTimeMs`.
 
 ## Non-functional requirements
 
