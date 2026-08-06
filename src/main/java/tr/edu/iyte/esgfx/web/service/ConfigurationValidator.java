@@ -15,14 +15,14 @@ import tr.edu.iyte.esgfx.api.ValidationResult;
 @Service
 public class ConfigurationValidator {
 
-    private final EsgFxModelLoader loader;
+    private final SplModelResolver resolver;
 
-    public ConfigurationValidator(EsgFxModelLoader loader) {
-        this.loader = loader;
+    public ConfigurationValidator(SplModelResolver resolver) {
+        this.resolver = resolver;
     }
 
-    public ValidationResult validate(String splShortName, Map<String, Boolean> requestedSelection) {
-        LoadedSplModel model = loader.load(splShortName);
+    public ValidationResult validate(ModelSource source, Map<String, Boolean> requestedSelection) {
+        LoadedSplModel model = resolver.resolve(source);
         Map<String, Boolean> selection =
                 FeatureSelectionMapper.completeSelection(model.getFeatureExpressionMap(), requestedSelection);
 

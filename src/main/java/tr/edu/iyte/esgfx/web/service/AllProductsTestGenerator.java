@@ -24,18 +24,18 @@ public class AllProductsTestGenerator {
      */
     public static final long MAX_CONFIGURATIONS = 200;
 
-    private final EsgFxModelLoader loader;
+    private final SplModelResolver resolver;
 
-    public AllProductsTestGenerator(EsgFxModelLoader loader) {
-        this.loader = loader;
+    public AllProductsTestGenerator(SplModelResolver resolver) {
+        this.resolver = resolver;
     }
 
-    public List<TestGenerationResult> generate(String splShortName, int coverageLength) throws Exception {
+    public List<TestGenerationResult> generate(ModelSource source, int coverageLength) throws Exception {
         if (coverageLength < 1 || coverageLength > 4) {
             throw new IllegalArgumentException("coverageLength must be in [1, 4], got " + coverageLength);
         }
 
-        LoadedSplModel model = loader.load(splShortName);
+        LoadedSplModel model = resolver.resolve(source);
 
         long configurationCount = SingleProductTestGenerationAPI.countValidConfigurations(model);
         if (configurationCount > MAX_CONFIGURATIONS) {
@@ -48,7 +48,7 @@ public class AllProductsTestGenerator {
         List<TestGenerationResult> converted = new ArrayList<>(results.size());
         for (SingleProductTestResult result : results) {
             converted.add(new TestGenerationResult(
-                    splShortName,
+                    source.displayName(),
                     result.getProductId(),
                     result.getSelection(),
                     result.getCoverageLength(),

@@ -65,6 +65,15 @@
 - **Verification:** All-products output reproduces the ground truth product for product — 308 products across three SPLs and four coverage lengths, checked both in-engine and over HTTP, zero mismatches. Product IDs line up because both the API and the research pipelines number only valid configurations. The count gate was exercised by temporarily lowering the limit to 20: SVM (12) generated, e-Mail (23) and Elevator (42) were refused with the count and limit in the message. All 12 SVM products render in the picker and all 22 of their sequences highlight.
 - **Note:** locking is derived from the feature model — the root, plus mandatory children of already-forced features. Or-group and alternative-group members are never locked; which one to take is the user's choice and the validator enforces the group rule. e-Mail's root `e` is concrete, so it appears as a locked checkbox; SVM's and Elevator's roots are abstract and carry no truth value, so they do not.
 
+## Phase 3D: Upload (Mode 2)
+- [x] Every endpoint accepts either a bundled `splName` or the two model files inline
+- [x] `POST /api/model` renders an uploaded pair in the same shape as a preloaded example
+- [x] Source selector with two file inputs; uploaded models drive validation, all three generation modes and highlighting unchanged
+- [x] 1 MB per-file limit; unreadable uploads answered as 400 with a specific message
+- **Verification:** Uploading the bundled SVM files produces byte-identical graphs, feature model, configuration count and generation output to the preloaded route. In the browser, uploading the Elevator pair gives 42 configurations / 12 features / 21 vertices / 80 edges, its L=2 test suite matches the preloaded Elevator sequence for sequence, all 15 sequences highlight, and all-products returns 42 products. Rejected inputs: empty file, malformed XML, well-formed XML in the wrong schema, and over-limit content — each a 400 naming the problem.
+- **Note on statelessness:** requests carry the model content rather than an upload handle. NFR3 asks for self-contained requests, and the deployment target sleeps when idle, so a server-side handle would go stale between upload and generation. The engine's converter reads paths rather than streams, so uploaded content is staged in a temp directory that is deleted before the request returns.
+- **Note:** well-formed XML in the wrong schema parses into an empty model without complaint, which surfaced only later as a 500. `EsgFxModelLoader.requireUsable` now rejects it at the door — a model with no root, no features or no vertices is not usable.
+
 ## Phase 4: Highlight + polish
 - [x] Click sequence → highlight on ESG-Fx, everything else dimmed
 - [x] Clear highlight button

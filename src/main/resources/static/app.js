@@ -123,6 +123,7 @@ let esgFxGraph = null;
 let currentSpl = null;
 let currentFeatureLabels = {};
 let currentExample = null;
+let uploadedModel = null;
 let latestResult = null;
 let allProducts = null;
 let lastGenerationMode = 'single';
@@ -378,34 +379,68 @@ function selectedCoverageLength() {
     return Number(document.querySelector('input[name="coverage-length"]:checked').value);
 }
 
+// Requests name a bundled example or carry the uploaded files themselves.
+// Nothing about an upload is kept on the server between requests, so the page
+// holds the file contents and sends them every time.
+function modelSourceBody() {
+    return uploadedModel
+        ? {featureModelXml: uploadedModel.featureModelXml, esgFxXml: uploadedModel.esgFxXml}
+        : {splName: currentSpl};
+}
+
+function applyModelPayload(payload) {
+    currentSpl = payload.name;
+    currentExample = payload;
+    currentFeatureLabels = payload.featureLabels || {};
+
+    renderFeatureModel(payload.featureModel, currentFeatureLabels);
+    renderEsgFx(payload.esgFx);
+    resetProducts();
+
+    setStat('stat-configs', payload.configurationCount.toLocaleString());
+    setStat('stat-features', payload.featureModel.nodes.length);
+    setStat('stat-vertices', payload.esgFx.nodes.length);
+    setStat('stat-edges', payload.esgFx.edges.length);
+
+    applyMode();
+}
+
 async function loadExample(name) {
     clearError();
     hideTooltip();
     clearResults();
+    uploadedModel = null;
     try {
         const response = await fetch('/api/example/' + name);
         if (!response.ok) {
             const body = await response.json().catch(() => ({}));
             throw new Error(body.error || ('Request failed with status ' + response.status));
         }
-        const payload = await response.json();
-
-        currentSpl = payload.name;
-        currentExample = payload;
-        currentFeatureLabels = payload.featureLabels || {};
-
-        renderFeatureModel(payload.featureModel, currentFeatureLabels);
-        renderEsgFx(payload.esgFx);
-        resetProducts();
-
-        setStat('stat-configs', payload.configurationCount.toLocaleString());
-        setStat('stat-features', payload.featureModel.nodes.length);
-        setStat('stat-vertices', payload.esgFx.nodes.length);
-        setStat('stat-edges', payload.esgFx.edges.length);
-
-        applyMode();
+        applyModelPayload(await response.json());
     } catch (error) {
         showError('Could not load the example: ' + error.message);
+    }
+}
+
+async function loadUploadedModel(featureModelXml, esgFxXml) {
+    clearError();
+    hideTooltip();
+    clearResults();
+    try {
+        const response = await fetch('/api/model', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({featureModelXml: featureModelXml, esgFxXml: esgFxXml})
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.error || ('Request failed with status ' + response.status));
+        }
+        uploadedModel = {featureModelXml: featureModelXml, esgFxXml: esgFxXml};
+        applyModelPayload(payload);
+    } catch (error) {
+        uploadedModel = null;
+        showError('Could not load the uploaded model: ' + error.message);
     }
 }
 
@@ -495,7 +530,7 @@ async function validateBlock(block) {
         const response = await fetch('/api/config/validate', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({splName: currentSpl, featureSelection: selectionOfBlock(block)})
+            body: JSON.stringify(Object.assign(modelSourceBody(), {featureSelection: selectionOfBlock(block)}))
         });
         const body = await response.json();
         if (body.valid) {
@@ -721,15 +756,15 @@ async function generate() {
     let request;
     if (allMode) {
         request = {url: '/api/generate/all',
-            body: {splName: currentSpl, coverageLength: selectedCoverageLength()}};
+            body: Object.assign(modelSourceBody(), {coverageLength: selectedCoverageLength()})};
     } else if (multi) {
         request = {url: '/api/generate/multi',
-            body: {splName: currentSpl, coverageLength: selectedCoverageLength(),
-                products: blocks.map(selectionOfBlock)}};
+            body: Object.assign(modelSourceBody(),
+                {coverageLength: selectedCoverageLength(), products: blocks.map(selectionOfBlock)})};
     } else {
         request = {url: '/api/generate',
-            body: {splName: currentSpl, coverageLength: selectedCoverageLength(),
-                featureSelection: selectionOfBlock(blocks[0])}};
+            body: Object.assign(modelSourceBody(),
+                {coverageLength: selectedCoverageLength(), featureSelection: selectionOfBlock(blocks[0])})};
     }
 
     try {
@@ -834,6 +869,40 @@ document.getElementById('product-select').addEventListener('change', (event) => 
 
 document.getElementById('example-select').addEventListener('change', (event) => {
     loadExample(event.target.value);
+});
+
+const featureModelFile = document.getElementById('feature-model-file');
+const esgFxFile = document.getElementById('esgfx-file');
+const loadUploadButton = document.getElementById('load-upload');
+
+function updateLoadUploadButton() {
+    loadUploadButton.disabled = !(featureModelFile.files[0] && esgFxFile.files[0]);
+}
+
+[featureModelFile, esgFxFile].forEach((input) => {
+    input.addEventListener('change', updateLoadUploadButton);
+});
+
+loadUploadButton.addEventListener('click', async () => {
+    loadUploadButton.disabled = true;
+    try {
+        const [featureModelXml, esgFxXml] = await Promise.all([
+            featureModelFile.files[0].text(),
+            esgFxFile.files[0].text()
+        ]);
+        await loadUploadedModel(featureModelXml, esgFxXml);
+    } finally {
+        updateLoadUploadButton();
+    }
+});
+
+document.getElementById('source-select').addEventListener('change', (event) => {
+    const upload = event.target.value === 'upload';
+    document.getElementById('example-picker').classList.toggle('hidden', upload);
+    document.getElementById('upload-picker').classList.toggle('hidden', !upload);
+    if (!upload) {
+        loadExample(document.getElementById('example-select').value);
+    }
 });
 
 document.querySelectorAll('[data-fit]').forEach((button) => {

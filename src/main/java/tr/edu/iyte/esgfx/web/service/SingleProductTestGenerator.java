@@ -18,20 +18,20 @@ import tr.edu.iyte.esgfx.api.SingleProductTestResult;
 @Service
 public class SingleProductTestGenerator {
 
-    private final EsgFxModelLoader loader;
+    private final SplModelResolver resolver;
 
-    public SingleProductTestGenerator(EsgFxModelLoader loader) {
-        this.loader = loader;
+    public SingleProductTestGenerator(SplModelResolver resolver) {
+        this.resolver = resolver;
     }
 
-    public TestGenerationResult generate(String splShortName, Map<String, Boolean> requestedSelection,
+    public TestGenerationResult generate(ModelSource source, Map<String, Boolean> requestedSelection,
             int productId, int coverageLength) throws Exception {
 
         if (coverageLength < 1 || coverageLength > 4) {
             throw new IllegalArgumentException("coverageLength must be in [1, 4], got " + coverageLength);
         }
 
-        LoadedSplModel model = loader.load(splShortName);
+        LoadedSplModel model = resolver.resolve(source);
         Map<String, Boolean> selection =
                 FeatureSelectionMapper.completeSelection(model.getFeatureExpressionMap(), requestedSelection);
 
@@ -39,7 +39,7 @@ public class SingleProductTestGenerator {
                 model, productId, selection, coverageLength);
 
         return new TestGenerationResult(
-                splShortName,
+                source.displayName(),
                 result.getProductId(),
                 selection,
                 result.getCoverageLength(),

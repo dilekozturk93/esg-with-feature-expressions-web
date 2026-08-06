@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import tr.edu.iyte.esgfx.api.InvalidConfigurationException;
 import tr.edu.iyte.esgfx.web.service.AllProductsTestGenerator;
+import tr.edu.iyte.esgfx.web.service.InvalidModelException;
+import tr.edu.iyte.esgfx.web.service.ModelSource;
 import tr.edu.iyte.esgfx.web.service.MultiProductTestGenerator;
 import tr.edu.iyte.esgfx.web.service.SingleProductTestGenerator;
 import tr.edu.iyte.esgfx.web.service.TestGenerationResult;
@@ -52,7 +54,7 @@ public class GenerationController {
 
         CompletableFuture<TestGenerationResult> future = CompletableFuture.supplyAsync(() -> {
             try {
-                return generator.generate(request.splName(), featureSelection, productId,
+                return generator.generate(request.toModelSource(), featureSelection, productId,
                         request.coverageLength());
             } catch (RuntimeException e) {
                 throw e;
@@ -74,6 +76,9 @@ public class GenerationController {
                 return ResponseEntity.badRequest()
                         .body(Map.of("valid", false, "errors", invalid.getErrors()));
             }
+            if (cause instanceof InvalidModelException) {
+                return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
+            }
             if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", cause.getMessage()));
@@ -89,7 +94,7 @@ public class GenerationController {
 
         CompletableFuture<List<TestGenerationResult>> future = CompletableFuture.supplyAsync(() -> {
             try {
-                return multiProductGenerator.generate(request.splName(), selections, request.coverageLength());
+                return multiProductGenerator.generate(request.toModelSource(), selections, request.coverageLength());
             } catch (RuntimeException e) {
                 throw e;
             } catch (Exception e) {
@@ -111,6 +116,9 @@ public class GenerationController {
                 return ResponseEntity.badRequest()
                         .body(Map.of("valid", false, "errors", invalid.getErrors()));
             }
+            if (cause instanceof InvalidModelException) {
+                return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
+            }
             if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
             }
@@ -122,7 +130,7 @@ public class GenerationController {
     public ResponseEntity<?> generateAll(@RequestBody GenerateAllRequest request) {
         CompletableFuture<List<TestGenerationResult>> future = CompletableFuture.supplyAsync(() -> {
             try {
-                return allProductsGenerator.generate(request.splName(), request.coverageLength());
+                return allProductsGenerator.generate(request.toModelSource(), request.coverageLength());
             } catch (RuntimeException e) {
                 throw e;
             } catch (Exception e) {
@@ -146,6 +154,9 @@ public class GenerationController {
                         "configurationCount", tooMany.getConfigurationCount(),
                         "limit", tooMany.getLimit()));
             }
+            if (cause instanceof InvalidModelException) {
+                return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
+            }
             if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
             }
@@ -158,15 +169,28 @@ public class GenerationController {
      * {@code productId} is optional and only labels the result, so that a
      * multi-product UI can match responses to the products the user ordered.
      */
-    public record GenerateRequest(String splName, Map<String, Boolean> featureSelection,
-            int coverageLength, Integer productId) {
+    public record GenerateRequest(String splName, String featureModelXml, String esgFxXml,
+            Map<String, Boolean> featureSelection, int coverageLength, Integer productId) {
+
+        ModelSource toModelSource() {
+            return new ModelSource(splName, featureModelXml, esgFxXml);
+        }
     }
 
     /** {@code products} is ordered; results come back numbered by that order. */
-    public record GenerateMultiRequest(String splName, List<Map<String, Boolean>> products,
-            int coverageLength) {
+    public record GenerateMultiRequest(String splName, String featureModelXml, String esgFxXml,
+            List<Map<String, Boolean>> products, int coverageLength) {
+
+        ModelSource toModelSource() {
+            return new ModelSource(splName, featureModelXml, esgFxXml);
+        }
     }
 
-    public record GenerateAllRequest(String splName, int coverageLength) {
+    public record GenerateAllRequest(String splName, String featureModelXml, String esgFxXml,
+            int coverageLength) {
+
+        ModelSource toModelSource() {
+            return new ModelSource(splName, featureModelXml, esgFxXml);
+        }
     }
 }

@@ -17,13 +17,13 @@ import tr.edu.iyte.esgfx.api.SingleProductTestResult;
 @Service
 public class MultiProductTestGenerator {
 
-    private final EsgFxModelLoader loader;
+    private final SplModelResolver resolver;
 
-    public MultiProductTestGenerator(EsgFxModelLoader loader) {
-        this.loader = loader;
+    public MultiProductTestGenerator(SplModelResolver resolver) {
+        this.resolver = resolver;
     }
 
-    public List<TestGenerationResult> generate(String splShortName,
+    public List<TestGenerationResult> generate(ModelSource source,
             List<Map<String, Boolean>> requestedSelections, int coverageLength) throws Exception {
 
         if (coverageLength < 1 || coverageLength > 4) {
@@ -33,7 +33,7 @@ public class MultiProductTestGenerator {
             throw new IllegalArgumentException("At least one product configuration is required");
         }
 
-        LoadedSplModel model = loader.load(splShortName);
+        LoadedSplModel model = resolver.resolve(source);
 
         List<Map<String, Boolean>> selections = new ArrayList<>(requestedSelections.size());
         for (Map<String, Boolean> requested : requestedSelections) {
@@ -47,7 +47,7 @@ public class MultiProductTestGenerator {
         List<TestGenerationResult> converted = new ArrayList<>(results.size());
         for (SingleProductTestResult result : results) {
             converted.add(new TestGenerationResult(
-                    splShortName,
+                    source.displayName(),
                     result.getProductId(),
                     result.getSelection(),
                     result.getCoverageLength(),
