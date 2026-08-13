@@ -15,6 +15,7 @@ import tr.edu.iyte.esgfx.web.service.AllProductsTestGenerator;
 import tr.edu.iyte.esgfx.web.service.EsgFxJsonExporter;
 import tr.edu.iyte.esgfx.web.service.EsgFxModelLoader;
 import tr.edu.iyte.esgfx.web.service.SampledProductsTestGenerator;
+import tr.edu.iyte.esgfx.web.service.SamplerCatalog;
 
 @RestController
 @RequestMapping("/api/example")
@@ -28,10 +29,12 @@ public class ExampleController {
 
     private final EsgFxModelLoader loader;
     private final EsgFxJsonExporter exporter;
+    private final SamplerCatalog samplers;
 
-    public ExampleController(EsgFxModelLoader loader, EsgFxJsonExporter exporter) {
+    public ExampleController(EsgFxModelLoader loader, EsgFxJsonExporter exporter, SamplerCatalog samplers) {
         this.loader = loader;
         this.exporter = exporter;
+        this.samplers = samplers;
     }
 
     @GetMapping("/{name}")
@@ -49,6 +52,7 @@ public class ExampleController {
         payload.put("configurationCount", SingleProductTestGenerationAPI.countValidConfigurations(model));
         payload.put("allProductsLimit", AllProductsTestGenerator.MAX_CONFIGURATIONS);
         payload.put("maxSampleSize", SampledProductsTestGenerator.MAX_SAMPLE_SIZE);
+        payload.put("uniGenAvailable", samplers.isUniGenAvailable());
 
         return ResponseEntity.ok(payload);
     }

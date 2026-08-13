@@ -519,6 +519,8 @@ function applyMode() {
     const desired = sampleSize.dataset.userSet ? Number(sampleSize.value) : DEFAULT_SAMPLE_SIZE;
     sampleSize.value = Math.max(1, Math.min(desired, ceiling));
 
+    updateSamplerChoice();
+
     hint.classList.toggle('hidden', !(mode === 'all' || overLimit));
     if (overLimit) {
         hint.textContent = count.toLocaleString() + ' valid configurations, above the limit of '
@@ -533,6 +535,29 @@ function applyMode() {
         generateButton.disabled = mode === 'all' && overLimit;
     }
 }
+
+// UniGen is an external tool, so it is only offered when the server reports it.
+function updateSamplerChoice() {
+    const select = document.getElementById('sampler-select');
+    const uniGenOption = select.querySelector('option[value="unigen"]');
+    const available = Boolean(currentExample && currentExample.uniGenAvailable);
+
+    uniGenOption.disabled = !available;
+    if (!available && select.value === 'unigen') {
+        select.value = 'enumeration';
+    }
+
+    document.getElementById('sampler-hint').textContent = select.value === 'unigen'
+        ? 'Almost-uniform SAT sampling; does not enumerate, so it keeps working on large models.'
+        : (available
+            ? 'Uniform over valid configurations by enumeration; the same seed draws the same sample.'
+            : 'Uniform by enumeration. UniGen is not installed on this server.');
+}
+
+document.getElementById('sampler-select').addEventListener('change', () => {
+    clearResults();
+    updateSamplerChoice();
+});
 
 function scheduleValidation(block) {
     setBlockStatus(block, 'pending', 'Checking configuration…');
@@ -779,7 +804,8 @@ async function generate() {
             body: Object.assign(modelSourceBody(), {
                 coverageLength: selectedCoverageLength(),
                 sampleSize: Number(document.getElementById('sample-size').value),
-                seed: Number(document.getElementById('sample-seed').value)
+                seed: Number(document.getElementById('sample-seed').value),
+                sampler: document.getElementById('sampler-select').value
             })};
     } else if (allMode) {
         request = {url: '/api/generate/all',

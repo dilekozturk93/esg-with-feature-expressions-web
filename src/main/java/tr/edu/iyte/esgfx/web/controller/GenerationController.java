@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import tr.edu.iyte.esgfx.api.InvalidConfigurationException;
+import tr.edu.iyte.esgfx.api.SamplerUnavailableException;
 import tr.edu.iyte.esgfx.web.service.AllProductsTestGenerator;
 import tr.edu.iyte.esgfx.web.service.InvalidModelException;
 import tr.edu.iyte.esgfx.web.service.ModelSource;
@@ -135,7 +136,7 @@ public class GenerationController {
         CompletableFuture<List<TestGenerationResult>> future = CompletableFuture.supplyAsync(() -> {
             try {
                 return sampledProductsGenerator.generate(request.toModelSource(), request.sampleSize(),
-                        request.seed(), request.coverageLength());
+                        request.seed(), request.sampler(), request.coverageLength());
             } catch (RuntimeException e) {
                 throw e;
             } catch (Exception e) {
@@ -152,6 +153,9 @@ public class GenerationController {
             if (cause instanceof TimeoutException) {
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
                         "error", "Generation timed out after " + ALL_PRODUCTS_TIMEOUT_SECONDS + " seconds"));
+            }
+            if (cause instanceof SamplerUnavailableException) {
+                return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
             }
             if (cause instanceof InvalidModelException) {
                 return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
@@ -225,7 +229,7 @@ public class GenerationController {
 
     /** {@code seed} is optional; omitting it uses the engine's default so runs repeat. */
     public record GenerateSampledRequest(String splName, String featureModelXml, String esgFxXml,
-            int sampleSize, Long seed, int coverageLength) {
+            int sampleSize, Long seed, String sampler, int coverageLength) {
 
         ModelSource toModelSource() {
             return new ModelSource(splName, featureModelXml, esgFxXml);

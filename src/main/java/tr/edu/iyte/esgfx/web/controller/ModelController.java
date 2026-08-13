@@ -14,6 +14,7 @@ import tr.edu.iyte.esgfx.web.service.AllProductsTestGenerator;
 import tr.edu.iyte.esgfx.web.service.EsgFxJsonExporter;
 import tr.edu.iyte.esgfx.web.service.EsgFxModelLoader;
 import tr.edu.iyte.esgfx.web.service.SampledProductsTestGenerator;
+import tr.edu.iyte.esgfx.web.service.SamplerCatalog;
 import tr.edu.iyte.esgfx.web.service.InvalidModelException;
 
 /**
@@ -27,10 +28,12 @@ public class ModelController {
 
     private final EsgFxModelLoader loader;
     private final EsgFxJsonExporter exporter;
+    private final SamplerCatalog samplers;
 
-    public ModelController(EsgFxModelLoader loader, EsgFxJsonExporter exporter) {
+    public ModelController(EsgFxModelLoader loader, EsgFxJsonExporter exporter, SamplerCatalog samplers) {
         this.loader = loader;
         this.exporter = exporter;
+        this.samplers = samplers;
     }
 
     @PostMapping
@@ -46,6 +49,7 @@ public class ModelController {
         payload.put("configurationCount", SingleProductTestGenerationAPI.countValidConfigurations(model));
         payload.put("allProductsLimit", AllProductsTestGenerator.MAX_CONFIGURATIONS);
         payload.put("maxSampleSize", SampledProductsTestGenerator.MAX_SAMPLE_SIZE);
+        payload.put("uniGenAvailable", samplers.isUniGenAvailable());
 
         return ResponseEntity.ok(payload);
     }

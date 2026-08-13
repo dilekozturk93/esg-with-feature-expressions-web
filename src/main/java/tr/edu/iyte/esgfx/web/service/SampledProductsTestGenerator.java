@@ -24,13 +24,15 @@ public class SampledProductsTestGenerator {
     public static final int MAX_SAMPLE_SIZE = 200;
 
     private final SplModelResolver resolver;
+    private final SamplerCatalog samplers;
 
-    public SampledProductsTestGenerator(SplModelResolver resolver) {
+    public SampledProductsTestGenerator(SplModelResolver resolver, SamplerCatalog samplers) {
         this.resolver = resolver;
+        this.samplers = samplers;
     }
 
     public List<TestGenerationResult> generate(ModelSource source, int sampleSize, Long seed,
-            int coverageLength) throws Exception {
+            String samplerName, int coverageLength) throws Exception {
 
         if (coverageLength < 1 || coverageLength > 4) {
             throw new IllegalArgumentException("coverageLength must be in [1, 4], got " + coverageLength);
@@ -40,12 +42,13 @@ public class SampledProductsTestGenerator {
                     "sampleSize must be in [1, " + MAX_SAMPLE_SIZE + "], got " + sampleSize);
         }
 
+        samplers.requireAvailable(samplerName);
+
         LoadedSplModel model = resolver.resolve(source);
         long effectiveSeed = seed == null ? SampledProductsTestGenerationAPI.DEFAULT_SEED : seed;
 
         List<SingleProductTestResult> results = SampledProductsTestGenerationAPI.generateForSample(
-                model, new tr.edu.iyte.esgfx.api.UniformEnumerationSampler(),
-                sampleSize, effectiveSeed, coverageLength);
+                model, samplers.samplerFor(samplerName), sampleSize, effectiveSeed, coverageLength);
 
         List<TestGenerationResult> converted = new ArrayList<>(results.size());
         for (SingleProductTestResult result : results) {

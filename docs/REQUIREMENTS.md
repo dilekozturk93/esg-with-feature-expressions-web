@@ -60,11 +60,12 @@ downloaded.
 every valid product configuration of the feature model.
 
 **Mode C — Sampled products.** Generate tests for a sample of 
-configurations drawn from the feature model. The default sampler draws 
-uniformly over the valid-configuration space by enumeration, reproducibly 
-for a given seed. It sits behind `ProductConfigurationSampler`, so a 
-sampler that does not enumerate — UniGen3 — can replace it without 
-touching the generation path.
+configurations drawn from the feature model, by either sampler behind 
+`ProductConfigurationSampler`: enumeration, which draws uniformly over the 
+valid-configuration space and reports each configuration's position in it; 
+or UniGen, which samples the CNF without enumerating and so keeps working 
+on models too large to walk. Both are reproducible for a given seed. 
+UniGen is an external tool, so it is offered only when the server has it.
 
 ### FR3: Configuration count
 
@@ -217,6 +218,5 @@ No session state, no database. Each request is self-contained.
 10. Draw-in-browser mode (Mode 3).
 
 Steps 1–10 are implemented, including the drag-and-drop layer over the model
-editor. What remains is deployment (a public URL, a container or fat-jar
-configuration, README and demo material), and UniGen3 behind the sampler
-interface.
+editor and UniGen behind the sampler interface. What remains is deployment:
+a public URL, a container or fat-jar configuration, README and demo material.

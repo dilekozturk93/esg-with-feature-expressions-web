@@ -254,9 +254,15 @@
                             <input id="sample-seed" type="number" value="42"
                                    class="w-24 border border-slate-300 rounded-md px-2 py-1.5 text-sm"/>
                         </label>
-                        <p class="text-xs text-slate-500 pb-1.5">
-                            Uniform over valid configurations; the same seed draws the same sample.
-                        </p>
+                        <label class="text-sm">
+                            <span class="block text-slate-600 mb-1">Sampler</span>
+                            <select id="sampler-select"
+                                    class="border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white">
+                                <option value="enumeration">Enumeration</option>
+                                <option value="unigen">UniGen</option>
+                            </select>
+                        </label>
+                        <p id="sampler-hint" class="text-xs text-slate-500 pb-1.5"></p>
                     </div>
                 </div>
 
