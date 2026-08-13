@@ -1,0 +1,18 @@
+# Deploys the container image built by the repository's Dockerfile.
+#
+# The build needs the engine submodule: the engine is not on a public Maven
+# repository and the bundled example models are copied from it into the jar. If
+# a deploy fails at the first build step with "lib/esg-core is empty", the host
+# cloned without submodules — enable submodule checkout for the service, or
+# vendor the engine into the repository.
+services:
+  - type: web
+    name: esgfx-web
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /
+    # The host sets PORT; the image binds whatever it is given.
+    envVars:
+      - key: PORT
+        value: 8080

@@ -1,0 +1,19 @@
+# Build outputs and local state; the image builds these from source.
+target/
+lib/esg-core/target/
+verification-reports/
+.git/
+.claude/
+*.claude-session
+
+# Generated experiment data in the submodule — large and not needed to run the
+# tool. The example models the tool ships with are copied in by the Maven build
+# from files/Cases/<SPL>/, which is kept.
+lib/esg-core/files/Cases/*/testsequences/
+lib/esg-core/files/Cases/*/DOTs/
+lib/esg-core/files/Cases/*/EFGs/
+lib/esg-core/files/Cases/*/productConfigurations/
+lib/esg-core/files/Cases/*/faultdetection/
+lib/esg-core/files/Cases/*/comparativeEfficiencyTestPipeline/
+lib/esg-core/files/Cases/*/extremeScalabilityTestPipeline/
+lib/esg-core/files/Cases/*/testsequenceanalysis/

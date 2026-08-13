@@ -24,7 +24,8 @@ public class FeatureLabelLoader {
     private final Map<String, Map<String, String>> labelsBySpl;
 
     public FeatureLabelLoader() {
-        try (InputStream in = new ClassPathResource(RESOURCE_PATH).getInputStream()) {
+        try (InputStream in = new ClassPathResource(RESOURCE_PATH,
+                FeatureLabelLoader.class.getClassLoader()).getInputStream()) {
             this.labelsBySpl = new ObjectMapper().readValue(
                     in, new TypeReference<Map<String, Map<String, String>>>() {});
         } catch (IOException e) {

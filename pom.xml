@@ -50,6 +50,43 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+
+            <!--
+                The bundled examples live in the engine submodule, which is their
+                single source of truth. Copying them into the jar at build time is
+                what lets the jar run from any working directory, and is what makes
+                the container image self-contained.
+            -->
+            <resource>
+                <directory>lib/esg-core/files/Cases/SodaVendingMachine</directory>
+                <targetPath>examples/SVM</targetPath>
+                <includes>
+                    <include>SVM_ESGFx.mxe</include>
+                    <include>configs/model.xml</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>lib/esg-core/files/Cases/eMail</directory>
+                <targetPath>examples/eM</targetPath>
+                <includes>
+                    <include>eM_ESGFx.mxe</include>
+                    <include>configs/model.xml</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>lib/esg-core/files/Cases/Elevator</directory>
+                <targetPath>examples/El</targetPath>
+                <includes>
+                    <include>El_ESGFx.mxe</include>
+                    <include>configs/model.xml</include>
+                </includes>
+            </resource>
+        </resources>
+
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

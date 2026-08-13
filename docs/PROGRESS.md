@@ -113,9 +113,15 @@
 - **Verification:** Event labels repeat within an ESG-Fx — SVM has two distinct `take` vertices — so a sequence is located by following real edges and backtracking, not by matching names. Checked that SVM's walk highlights `take` v13 (reachable from `open`) and leaves v11 dimmed. Then resolved *every* sequence of every bundled example at every coverage length against its ESG-Fx: SVM 4 levels, e-Mail 2 configurations × 4 levels, Elevator 4 levels (42 sequences at L=4). Zero unresolved, and every walk had exactly `events − 1` edges, so each one is a continuous path. L=3/L=4 composite tokens decompose to the same walk as L=1.
 
 ## Phase 5: Deploy + materials
-- [ ] Dockerfile or fat jar config
+- [x] Bundled examples packaged into the jar, so it runs from any directory
+- [x] `Dockerfile` (multi-stage: engine submodule → web app → JRE + UniGen), `.dockerignore`, `render.yaml`
+- [x] README rewritten for a reviewer: run the image, build from source, reproduce the ground-truth checks, archive as an artifact
+- **Verification of the self-contained jar:** copied alone into an empty directory with no repository anywhere near it, and driven there — all three examples load, single-product, all-products and sampled generation all work, on the default port and on `--server.port=9090`, with the bridge given an absolute path as the image does. Regression still 308/308 and all four engine checks pass.
+- **Note — a packaging-only bug this surfaced:** `/api/generate` runs on a `ForkJoinPool` thread, whose context class loader is not the one Spring Boot's executable jar launches with, so a default `ClassPathResource` lookup could not see `BOOT-INF/classes`. Examples loaded fine over `/api/example` and failed under generation. Resource lookups are now pinned to the declaring class's loader. This only appears once the app is packaged, which is why running from the working tree never showed it.
+- **Not verified:** Docker is not installed on the development machine, so the image has not been built or run. Every assumption inside it that could be checked without Docker was: the Maven build, `dependency:go-offline`, the bundled-resource layout, `--server.port=$PORT`, the absolute bridge path, and UniGen through it. What remains untested is the image assembly itself — base images, `apt-get`, and the `pyunigen` wheel on linux/amd64.
 - [ ] Deployed on Render with public URL
-- [ ] README updated with screenshots, deployment URL, usage
+- [ ] Deployed on Render with public URL
+- [ ] README screenshots and the deployment URL, once it exists
 - [ ] Demo video recorded
 - [ ] Paper draft started
 - **Verification:** Cold visit to public URL completes full flow successfully

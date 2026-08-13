@@ -1,12 +1,13 @@
 package tr.edu.iyte.esgfx.web.service;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import tr.edu.iyte.esgfx.api.LoadedSplModel;
@@ -15,6 +16,11 @@ import tr.edu.iyte.esgfx.api.SingleProductTestGenerationAPI;
 /**
  * Loads a feature model and ESG-Fx pair, either from the bundled examples or
  * from content supplied with the request.
+ *
+ * <p>The bundled examples travel inside the jar rather than being read from the
+ * submodule's working tree, so the packaged application runs from any directory
+ * — which is what a container image and a downloaded artifact both need. The
+ * build copies them in from the submodule, which stays their source of truth.
  */
 @Service
 public class EsgFxModelLoader {
@@ -23,45 +29,53 @@ public class EsgFxModelLoader {
     public static final int MAX_MODEL_BYTES = 1024 * 1024;
 
     private static final Map<String, ExampleFiles> EXAMPLES = Map.of(
-            "SVM", new ExampleFiles(
-                    "lib/esg-core/files/Cases/SodaVendingMachine/SVM_ESGFx.mxe",
-                    "lib/esg-core/files/Cases/SodaVendingMachine/configs/model.xml"),
-            "eM", new ExampleFiles(
-                    "lib/esg-core/files/Cases/eMail/eM_ESGFx.mxe",
-                    "lib/esg-core/files/Cases/eMail/configs/model.xml"),
-            "El", new ExampleFiles(
-                    "lib/esg-core/files/Cases/Elevator/El_ESGFx.mxe",
-                    "lib/esg-core/files/Cases/Elevator/configs/model.xml"));
+            "SVM", new ExampleFiles("examples/SVM/SVM_ESGFx.mxe", "examples/SVM/configs/model.xml"),
+            "eM", new ExampleFiles("examples/eM/eM_ESGFx.mxe", "examples/eM/configs/model.xml"),
+            "El", new ExampleFiles("examples/El/El_ESGFx.mxe", "examples/El/configs/model.xml"));
 
     public LoadedSplModel load(String shortName) {
-        ExampleFiles files = EXAMPLES.get(shortName);
-        if (files == null) {
-            throw new IllegalArgumentException("Unknown example: " + shortName);
-        }
-
-        String mxePath = requireExisting(files.mxe());
-        String modelPath = requireExisting(files.featureModel());
-
+        ExampleFiles files = examplesFor(shortName);
         try {
-            return SingleProductTestGenerationAPI.load(modelPath, mxePath);
+            return stageAndLoad(readResource(files.featureModel()), readResource(files.mxe()));
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new IllegalStateException("Failed to load example " + shortName, e);
         }
     }
 
+    /** The example's feature model as written, for callers that need what the graph export drops. */
+    public String featureModelXmlOf(String shortName) {
+        return readResource(examplesFor(shortName).featureModel());
+    }
+
     /**
-     * Loads a model supplied with the request. The engine's converter reads
-     * from paths rather than streams, so the content is staged in a temporary
-     * directory that is removed before returning — nothing about the upload
-     * outlives the request, which is what keeps the service stateless.
+     * Loads a model supplied with the request.
      */
     public LoadedSplModel loadFromContent(String featureModelXml, String esgFxXml) {
         requireWithinLimit(featureModelXml, "Feature model");
         requireWithinLimit(esgFxXml, "ESG-Fx");
+        try {
+            return stageAndLoad(featureModelXml, esgFxXml);
+        } catch (InvalidModelException | IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new InvalidModelException(
+                    "The uploaded files could not be read as a feature model and an ESG-Fx. "
+                            + rootMessage(e));
+        }
+    }
 
+    /**
+     * The engine's converter reads from paths rather than streams, so the content
+     * is staged in a temporary directory that is removed before returning —
+     * nothing about a request outlives it, which is what keeps the service
+     * stateless whether the model came from the jar or from an upload.
+     */
+    private LoadedSplModel stageAndLoad(String featureModelXml, String esgFxXml) throws Exception {
         Path directory = null;
         try {
-            directory = Files.createTempDirectory("esgfx-upload");
+            directory = Files.createTempDirectory("esgfx-model");
             Path featureModelPath = directory.resolve("model.xml");
             Path esgFxPath = directory.resolve("model.mxe");
             Files.writeString(featureModelPath, featureModelXml, StandardCharsets.UTF_8);
@@ -72,15 +86,32 @@ public class EsgFxModelLoader {
             requireUsable(model);
             return model;
         } catch (IOException e) {
-            throw new IllegalStateException("Could not stage the uploaded model", e);
-        } catch (InvalidModelException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new InvalidModelException(
-                    "The uploaded files could not be read as a feature model and an ESG-Fx. "
-                            + rootMessage(e));
+            throw new IllegalStateException("Could not stage the model", e);
         } finally {
             deleteRecursively(directory);
+        }
+    }
+
+    private static ExampleFiles examplesFor(String shortName) {
+        ExampleFiles files = EXAMPLES.get(shortName);
+        if (files == null) {
+            throw new IllegalArgumentException("Unknown example: " + shortName);
+        }
+        return files;
+    }
+
+    private static String readResource(String path) {
+        // Pinned to this class's loader on purpose. Generation runs on a
+        // ForkJoinPool thread, whose context class loader is not the one Spring
+        // Boot's executable jar launches with, so the default lookup cannot see
+        // BOOT-INF/classes — a miss that only appears once the app is packaged.
+        try (InputStream in = new ClassPathResource(path,
+                EsgFxModelLoader.class.getClassLoader()).getInputStream()) {
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Bundled example resource is missing: " + path
+                    + ". The build copies these in from lib/esg-core; check that the submodule "
+                    + "was checked out before packaging.", e);
         }
     }
 
@@ -137,28 +168,6 @@ public class EsgFxModelLoader {
         } catch (IOException ignored) {
             // Same.
         }
-    }
-
-    /** The example's feature model file as written, for callers that need what the graph export drops. */
-    public String featureModelXmlOf(String shortName) {
-        ExampleFiles files = EXAMPLES.get(shortName);
-        if (files == null) {
-            throw new IllegalArgumentException("Unknown example: " + shortName);
-        }
-        try {
-            return Files.readString(Path.of(requireExisting(files.featureModel())), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not read the feature model for " + shortName, e);
-        }
-    }
-
-    private static String requireExisting(String relativePath) {
-        File file = new File(relativePath);
-        if (!file.exists()) {
-            throw new IllegalStateException(
-                    "Required example file not found: " + file.getAbsolutePath());
-        }
-        return file.getAbsolutePath();
     }
 
     private record ExampleFiles(String mxe, String featureModel) {
