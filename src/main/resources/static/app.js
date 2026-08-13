@@ -1442,10 +1442,7 @@ let editorTimer = null;
 
 function scheduleEditorChange() {
     clearTimeout(editorTimer);
-    editorTimer = setTimeout(() => {
-        renderEditor();
-        reportEditorProblems();
-    }, VALIDATION_DEBOUNCE_MS);
+    editorTimer = setTimeout(refreshEditor, VALIDATION_DEBOUNCE_MS);
 }
 
 function reportEditorProblems() {
@@ -1475,6 +1472,11 @@ async function applyEditorModel() {
         return;
     }
     await loadUploadedModel(serializeFeatureModel(), serializeEsgFx());
+    // loadUploadedModel draws the model the backend parsed; in draw mode the
+    // canvas belongs to the editor, so it is put back.
+    if (drawMode) {
+        renderEditorGraphs();
+    }
 }
 
 /** Rebuilds editor state from a loaded model, so a bundled example can be edited. */
@@ -1521,31 +1523,14 @@ function editorStateFromPayload(payload) {
 }
 
 document.getElementById('add-feature').addEventListener('click', () => {
-    editorState.features.push({
-        name: 'F' + (editorState.features.length + 1),
-        parent: editorState.features[0].name,
-        relation: 'optional',
-        abstract: false
-    });
-    renderEditor();
-    reportEditorProblems();
+    addFeatureUnder(editorState.features[0].name);
 });
 
-document.getElementById('add-event').addEventListener('click', () => {
-    const names = featureNames();
-    editorState.events.push({
-        id: newEventId(),
-        name: 'e' + (editorState.events.length + 1),
-        expression: names.length ? names[names.length - 1] : ''
-    });
-    renderEditor();
-    reportEditorProblems();
-});
+document.getElementById('add-event').addEventListener('click', addEventVertex);
 
 document.getElementById('add-edge').addEventListener('click', () => {
     editorState.edges.push({source: PSEUDO_START, target: PSEUDO_END});
-    renderEditor();
-    reportEditorProblems();
+    refreshEditor();
 });
 
 document.getElementById('add-constraint').addEventListener('click', () => {
@@ -1562,8 +1547,7 @@ document.getElementById('add-constraint').addEventListener('click', () => {
         label: left + ' requires ' + right,
         editable: true
     });
-    renderEditor();
-    reportEditorProblems();
+    refreshEditor();
 });
 
 document.getElementById('sample-size').addEventListener('input', (event) => {
@@ -1584,8 +1568,7 @@ document.getElementById('editor-preset').addEventListener('change', async (event
         editorState = editorStateFromPayload(
             await fetch('/api/example/' + preset).then((response) => response.json()));
     }
-    renderEditor();
-    reportEditorProblems();
+    refreshEditor();
 });
 
 document.getElementById('source-select').addEventListener('change', (event) => {
@@ -1593,6 +1576,8 @@ document.getElementById('source-select').addEventListener('change', (event) => {
     document.getElementById('example-picker').classList.toggle('hidden', source !== 'example');
     document.getElementById('upload-picker').classList.toggle('hidden', source !== 'upload');
     document.getElementById('editor').classList.toggle('hidden', source !== 'draw');
+
+    setDrawMode(source === 'draw');
 
     if (source === 'example') {
         loadExample(document.getElementById('example-select').value);
@@ -1604,4 +1589,397 @@ document.getElementById('source-select').addEventListener('change', (event) => {
         reportEditorProblems();
         applyEditorModel();
     }
+});
+
+// ---------------------------------------------------------------------------
+// Drag-and-drop editing
+//
+// In draw mode the two panels stop being a read-only view of what the backend
+// parsed and become the editor's own canvas: they render straight from
+// editorState, so a change shows up without a round trip. The form stays the
+// place for exact values (names, expressions, relations); the canvas is for
+// structure. Both write to the same state, and serialization is untouched.
+// ---------------------------------------------------------------------------
+
+const DRAW_HINT_IDS = ['feature-model-hint', 'esg-fx-hint'];
+const DELETE_BUTTON_IDS = ['delete-feature-selection', 'delete-esg-selection'];
+
+let drawMode = false;
+
+function editorFeatureElements() {
+    const nodes = editorState.features.filter((feature) => feature.name).map((feature, index) => ({
+        data: {
+            id: feature.name,
+            label: feature.name,
+            displayLabel: feature.name,
+            engineName: feature.name,
+            type: index === 0 ? 'root' : feature.relation,
+            isAbstract: feature.abstract
+        }
+    }));
+    const names = new Set(nodes.map((node) => node.data.id));
+    const edges = editorState.features
+        .filter((feature) => feature.parent && names.has(feature.parent) && names.has(feature.name))
+        .map((feature) => ({
+            data: {
+                id: feature.parent + '->' + feature.name,
+                source: feature.parent,
+                target: feature.name
+            }
+        }));
+    return {nodes: nodes, edges: edges};
+}
+
+function editorEsgFxElements() {
+    const nodes = [{data: {id: PSEUDO_START, label: PSEUDO_START, isPseudoStart: true}}]
+        .concat(editorState.events.map((event) => ({
+            data: {
+                id: event.id,
+                label: event.name,
+                featureExpression: event.expression
+            }
+        })))
+        .concat([{data: {id: PSEUDO_END, label: PSEUDO_END, isPseudoEnd: true}}]);
+
+    const known = new Set(nodes.map((node) => node.data.id));
+    const edges = editorState.edges
+        .filter((edge) => known.has(edge.source) && known.has(edge.target))
+        .map((edge, index) => ({
+            data: {id: 'e' + index, source: edge.source, target: edge.target}
+        }));
+    return {nodes: nodes, edges: edges};
+}
+
+/** Nudges a name that is already taken, so a new node never collides. */
+function uniqueName(base, taken) {
+    if (taken.indexOf(base) < 0) {
+        return base;
+    }
+    let suffix = 2;
+    while (taken.indexOf(base + suffix) >= 0) {
+        suffix++;
+    }
+    return base + suffix;
+}
+
+function addFeatureUnder(parentName) {
+    const name = uniqueName('F' + (editorState.features.length + 1), featureNames());
+    editorState.features.push({
+        name: name,
+        parent: parentName || editorState.features[0].name,
+        relation: 'optional',
+        abstract: false
+    });
+    refreshEditor();
+}
+
+function addEventVertex() {
+    const names = featureNames();
+    editorState.events.push({
+        id: newEventId(),
+        name: uniqueName('e' + (editorState.events.length + 1),
+            editorState.events.map((event) => event.name)),
+        expression: names.length ? names[names.length - 1] : ''
+    });
+    refreshEditor();
+}
+
+/** Removing a feature hands its children to the root rather than orphaning them. */
+function removeFeature(name) {
+    if (!editorState.features.length || editorState.features[0].name === name) {
+        return;
+    }
+    editorState.features = editorState.features.filter((feature) => feature.name !== name);
+    const rootName = editorState.features[0].name;
+    editorState.features.forEach((feature) => {
+        if (feature.parent === name) {
+            feature.parent = rootName;
+        }
+    });
+    refreshEditor();
+}
+
+function removeEventVertex(id) {
+    editorState.events = editorState.events.filter((event) => event.id !== id);
+    editorState.edges = editorState.edges.filter(
+        (edge) => edge.source !== id && edge.target !== id);
+    refreshEditor();
+}
+
+function addEsgEdge(source, target) {
+    const exists = editorState.edges.some(
+        (edge) => edge.source === source && edge.target === target);
+    if (!exists) {
+        editorState.edges.push({source: source, target: target});
+    }
+    refreshEditor();
+}
+
+/** Re-renders form, canvas and problem report from the current state. */
+function refreshEditor() {
+    renderEditor();
+    reportEditorProblems();
+    if (drawMode) {
+        renderEditorGraphs();
+    }
+}
+
+function attachFeatureEditing(graph) {
+    graph.on('dbltap', (event) => {
+        if (event.target === graph) {
+            addFeatureUnder(editorState.features[0].name);
+        }
+    });
+
+    // Dropping a feature on top of another reparents it. Cytoscape has no notion
+    // of that on its own, so the drop target is whatever node the dragged one
+    // was released over.
+    graph.on('dragfree', 'node', (event) => {
+        const dragged = event.target;
+        const feature = editorState.features.filter((f) => f.name === dragged.id())[0];
+        if (!feature || feature === editorState.features[0]) {
+            renderEditorGraphs();
+            return;
+        }
+
+        const position = dragged.position();
+        const target = graph.nodes().filter((node) => {
+            if (node.id() === dragged.id()) {
+                return false;
+            }
+            const box = node.boundingBox();
+            return position.x >= box.x1 && position.x <= box.x2
+                && position.y >= box.y1 && position.y <= box.y2;
+        })[0];
+
+        // Reparenting under one's own descendant would detach the subtree.
+        if (target && !isDescendantOf(target.id(), feature.name)) {
+            feature.parent = target.id();
+            refreshEditor();
+        } else {
+            renderEditorGraphs();
+        }
+    });
+}
+
+function isDescendantOf(candidate, ancestor) {
+    let current = candidate;
+    const seen = new Set();
+    while (current && !seen.has(current)) {
+        if (current === ancestor) {
+            return true;
+        }
+        seen.add(current);
+        const feature = editorState.features.filter((f) => f.name === current)[0];
+        current = feature ? feature.parent : null;
+    }
+    return false;
+}
+
+const GHOST_NODE_ID = '__connect_ghost';
+const GHOST_EDGE_ID = '__connect_ghost_edge';
+
+// The pseudo start has nothing before it and the pseudo end nothing after it,
+// and a self-loop is not an event following itself.
+function canConnect(sourceId, targetId) {
+    return sourceId !== targetId && targetId !== PSEUDO_START && sourceId !== PSEUDO_END;
+}
+
+/** The real node under a point, ignoring the drag's own scaffolding. */
+function nodeAt(graph, position, excludeIds) {
+    return graph.nodes().filter((node) => {
+        if (excludeIds.indexOf(node.id()) >= 0) {
+            return false;
+        }
+        const box = node.boundingBox();
+        return position.x >= box.x1 && position.x <= box.x2
+            && position.y >= box.y1 && position.y <= box.y2;
+    })[0];
+}
+
+// Drag-to-connect, written directly rather than through the edgehandles
+// extension: its browser bundle expects two lodash helpers as externals and
+// silently fails to register without them. Vertices are positioned by the
+// layout rather than by hand, so every drag on this canvas means "connect".
+function attachEsgFxEditing(graph) {
+    graph.autoungrabify(true);
+
+    let connectSource = null;
+
+    function clearGesture() {
+        graph.getElementById(GHOST_EDGE_ID).remove();
+        graph.getElementById(GHOST_NODE_ID).remove();
+        connectSource = null;
+    }
+
+    graph.on('dbltap', (event) => {
+        if (event.target === graph) {
+            addEventVertex();
+        }
+    });
+
+    graph.on('mousedown', 'node', (event) => {
+        const node = event.target;
+        if (node.id() === PSEUDO_END) {
+            return;
+        }
+        connectSource = node;
+        graph.add([
+            {group: 'nodes', data: {id: GHOST_NODE_ID}, position: Object.assign({}, event.position),
+                classes: 'connect-ghost', selectable: false, grabbable: false},
+            {group: 'edges', data: {id: GHOST_EDGE_ID, source: node.id(), target: GHOST_NODE_ID},
+                classes: 'connect-ghost-edge', selectable: false}
+        ]);
+    });
+
+    graph.on('mousemove', (event) => {
+        if (!connectSource) {
+            return;
+        }
+        const ghost = graph.getElementById(GHOST_NODE_ID);
+        if (ghost.nonempty()) {
+            ghost.position(event.position);
+        }
+    });
+
+    graph.on('mouseup', (event) => {
+        if (!connectSource) {
+            return;
+        }
+        const source = connectSource;
+        const position = event.position;
+        clearGesture();
+
+        const target = nodeAt(graph, position, [GHOST_NODE_ID, source.id()]);
+        if (target && canConnect(source.id(), target.id())) {
+            addEsgEdge(source.id(), target.id());
+        }
+    });
+
+    // A drag released outside the canvas would otherwise leave the ghost behind.
+    graph.on('mouseout', (event) => {
+        if (connectSource && event.target === graph) {
+            clearGesture();
+        }
+    });
+}
+
+function selectionOf(graph) {
+    return graph.$(':selected');
+}
+
+function updateDeleteButtons() {
+    const featureSelected = featureModelGraph ? selectionOf(featureModelGraph).length > 0 : false;
+    const esgSelected = esgFxGraph ? selectionOf(esgFxGraph).length > 0 : false;
+    document.getElementById('delete-feature-selection').disabled = !featureSelected;
+    document.getElementById('delete-esg-selection').disabled = !esgSelected;
+    [['delete-feature-selection', featureSelected], ['delete-esg-selection', esgSelected]]
+        .forEach(([id, enabled]) => {
+            const button = document.getElementById(id);
+            button.classList.toggle('opacity-40', !enabled);
+            button.classList.toggle('cursor-not-allowed', !enabled);
+        });
+}
+
+function deleteEsgSelection() {
+    if (!esgFxGraph) {
+        return;
+    }
+    const selected = selectionOf(esgFxGraph);
+    selected.filter('edge').forEach((edge) => {
+        editorState.edges = editorState.edges.filter(
+            (candidate) => !(candidate.source === edge.source().id()
+                && candidate.target === edge.target().id()));
+    });
+    selected.filter('node').forEach((node) => {
+        if (node.id() !== PSEUDO_START && node.id() !== PSEUDO_END) {
+            editorState.events = editorState.events.filter((event) => event.id !== node.id());
+            editorState.edges = editorState.edges.filter(
+                (edge) => edge.source !== node.id() && edge.target !== node.id());
+        }
+    });
+    refreshEditor();
+}
+
+function deleteFeatureSelection() {
+    if (!featureModelGraph) {
+        return;
+    }
+    selectionOf(featureModelGraph).filter('node').forEach((node) => removeFeature(node.id()));
+    refreshEditor();
+}
+
+const editorGraphStyle = featureModelStyle.concat([
+    {selector: 'node:selected', style: {'border-width': 4, 'border-color': '#ea580c', 'border-opacity': 1}},
+    {selector: 'edge:selected', style: {'line-color': '#ea580c', 'width': 3}},
+    {selector: '.connect-ghost', style: {'width': 1, 'height': 1, 'opacity': 0, 'label': ''}},
+    {selector: '.connect-ghost-edge', style: {
+        'line-color': '#ea580c', 'target-arrow-color': '#ea580c', 'width': 3, 'line-style': 'dashed'
+    }}
+]);
+
+const editorEsgStyle = esgFxStyle.concat([
+    {selector: 'node:selected', style: {'border-width': 4, 'border-color': '#ea580c', 'border-opacity': 1}},
+    {selector: 'edge:selected', style: {'line-color': '#ea580c', 'target-arrow-color': '#ea580c', 'width': 3}},
+    {selector: '.connect-ghost', style: {'width': 1, 'height': 1, 'opacity': 0, 'label': ''}},
+    {selector: '.connect-ghost-edge', style: {
+        'line-color': '#ea580c', 'target-arrow-color': '#ea580c', 'width': 3, 'line-style': 'dashed'
+    }}
+]);
+
+function renderEditorGraphs() {
+    if (featureModelGraph) {
+        featureModelGraph.destroy();
+    }
+    if (esgFxGraph) {
+        esgFxGraph.destroy();
+    }
+
+    featureModelGraph = buildGraph('feature-model', editorFeatureElements(), editorGraphStyle, 'TB');
+    esgFxGraph = buildGraph('esg-fx', editorEsgFxElements(), editorEsgStyle, 'LR');
+
+    attachFeatureEditing(featureModelGraph);
+    attachEsgFxEditing(esgFxGraph);
+
+    [featureModelGraph, esgFxGraph].forEach((graph) => {
+        graph.on('select unselect', updateDeleteButtons);
+    });
+
+    esgFxGraph.on('mouseover', 'node', (event) => {
+        const data = event.target.data();
+        if (data.isPseudoStart || data.isPseudoEnd) {
+            showTooltip(data.isPseudoStart ? 'pseudo start vertex' : 'pseudo end vertex', event);
+            return;
+        }
+        showTooltip(data.label + ' — ' + (data.featureExpression || 'no feature expression'), event);
+    });
+    esgFxGraph.on('mouseout', 'node', hideTooltip);
+
+    updateDeleteButtons();
+}
+
+function setDrawMode(enabled) {
+    drawMode = enabled;
+    DRAW_HINT_IDS.forEach((id) => document.getElementById(id).classList.toggle('hidden', !enabled));
+    DELETE_BUTTON_IDS.forEach((id) => document.getElementById(id).classList.toggle('hidden', !enabled));
+    if (enabled) {
+        updateDeleteButtons();
+    }
+}
+
+document.getElementById('delete-feature-selection').addEventListener('click', deleteFeatureSelection);
+document.getElementById('delete-esg-selection').addEventListener('click', deleteEsgSelection);
+
+document.addEventListener('keydown', (event) => {
+    if (!drawMode || (event.key !== 'Delete' && event.key !== 'Backspace')) {
+        return;
+    }
+    // Backspace inside a text field means backspace, not delete-node.
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+        return;
+    }
+    event.preventDefault();
+    deleteEsgSelection();
+    deleteFeatureSelection();
 });

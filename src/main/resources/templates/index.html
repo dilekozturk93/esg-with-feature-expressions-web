@@ -168,8 +168,17 @@
         <section class="bg-white rounded-lg border border-slate-200 flex flex-col">
             <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
                 <h2 class="font-medium">Feature model</h2>
-                <button type="button" data-fit="feature-model"
-                        class="text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50">Fit</button>
+                <div class="flex items-center gap-2">
+                    <span id="feature-model-hint" class="hidden text-xs text-slate-500">
+                        double-click to add · drag onto a feature to reparent
+                    </span>
+                    <button id="delete-feature-selection" type="button"
+                            class="hidden text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50">
+                        Delete selected
+                    </button>
+                    <button type="button" data-fit="feature-model"
+                            class="text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50">Fit</button>
+                </div>
             </div>
             <div id="feature-model" class="h-[540px]"></div>
             <div class="px-4 py-3 border-t border-slate-200 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600">
@@ -187,6 +196,13 @@
                 <h2 class="font-medium">ESG-Fx</h2>
                 <div class="flex items-center gap-2">
                     <span id="highlight-status" class="text-xs text-slate-500"></span>
+                    <span id="esg-fx-hint" class="hidden text-xs text-slate-500">
+                        double-click to add · drag from a vertex to connect
+                    </span>
+                    <button id="delete-esg-selection" type="button"
+                            class="hidden text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50">
+                        Delete selected
+                    </button>
                     <button id="clear-highlight" type="button" disabled
                             class="text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50
                                    disabled:opacity-40 disabled:cursor-not-allowed">Clear highlight</button>

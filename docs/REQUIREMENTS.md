@@ -39,9 +39,9 @@ only the UI translates.
 own ESG-Fx file.
 
 **Mode 3 — Draw in-browser.** User constructs the feature model and the 
-ESG-Fx directly in the tool. Implemented as a form-based editor that writes 
-the same two files an upload supplies; a drag-and-drop layer is still to 
-come.
+ESG-Fx directly in the tool, on the graph canvases (drag to connect, drag to 
+reparent, double-click to add) or in the accompanying form for exact values. 
+Either way the editor writes the same two files an upload supplies.
 
 Regardless of mode, the result is one feature model plus one ESG-Fx 
 delivered to the backend.
@@ -216,7 +216,7 @@ No session state, no database. Each request is self-contained.
 9. Sampled mode (Mode C) — sampler integration.
 10. Draw-in-browser mode (Mode 3).
 
-Steps 1–10 are implemented. What remains is deployment (a public URL, a
-container or fat-jar configuration, README and demo material) and two
-deliberately deferred pieces: UniGen3 behind the sampler interface, and a
-drag-and-drop layer over the model editor.
+Steps 1–10 are implemented, including the drag-and-drop layer over the model
+editor. What remains is deployment (a public URL, a container or fat-jar
+configuration, README and demo material), and UniGen3 behind the sampler
+interface.
