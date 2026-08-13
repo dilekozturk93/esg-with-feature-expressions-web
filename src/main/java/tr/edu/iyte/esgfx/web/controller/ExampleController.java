@@ -43,6 +43,9 @@ public class ExampleController {
 
         LoadedSplModel model = loader.load(shortName);
         Map<String, Object> payload = exporter.export(shortName, model);
+        // The editor needs the source to carry cross-tree constraints across a
+        // round trip; they live in <constraints>, which the graph export omits.
+        payload.put("featureModelXml", loader.featureModelXmlOf(shortName));
         payload.put("configurationCount", SingleProductTestGenerationAPI.countValidConfigurations(model));
         payload.put("allProductsLimit", AllProductsTestGenerator.MAX_CONFIGURATIONS);
         payload.put("maxSampleSize", SampledProductsTestGenerator.MAX_SAMPLE_SIZE);

@@ -117,6 +117,7 @@ const esgFxStyle = [
 ];
 
 const VALIDATION_DEBOUNCE_MS = 300;
+const DEFAULT_SAMPLE_SIZE = 5;
 
 let featureModelGraph = null;
 let esgFxGraph = null;
@@ -509,11 +510,14 @@ function applyMode() {
     }
 
     // The sample can never exceed the configuration space, so the input says so.
+    // A value the user did not choose is re-derived rather than only clamped
+    // down, or moving from a one-configuration model to a larger one would
+    // silently leave the sample size at 1.
     const sampleSize = document.getElementById('sample-size');
-    sampleSize.max = Math.min(count, currentExample.maxSampleSize || count);
-    if (Number(sampleSize.value) > Number(sampleSize.max)) {
-        sampleSize.value = sampleSize.max;
-    }
+    const ceiling = Math.max(1, Math.min(count, currentExample.maxSampleSize || count));
+    sampleSize.max = ceiling;
+    const desired = sampleSize.dataset.userSet ? Number(sampleSize.value) : DEFAULT_SAMPLE_SIZE;
+    sampleSize.value = Math.max(1, Math.min(desired, ceiling));
 
     hint.classList.toggle('hidden', !(mode === 'all' || overLimit));
     if (overLimit) {
@@ -920,14 +924,7 @@ loadUploadButton.addEventListener('click', async () => {
     }
 });
 
-document.getElementById('source-select').addEventListener('change', (event) => {
-    const upload = event.target.value === 'upload';
-    document.getElementById('example-picker').classList.toggle('hidden', upload);
-    document.getElementById('upload-picker').classList.toggle('hidden', !upload);
-    if (!upload) {
-        loadExample(document.getElementById('example-select').value);
-    }
-});
+
 
 document.querySelectorAll('[data-fit]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -943,3 +940,668 @@ window.addEventListener('resize', () => {
 });
 
 loadExample(document.getElementById('example-select').value);
+
+// ---------------------------------------------------------------------------
+// Model editor (Mode 3)
+//
+// The editor produces the same two files an upload would supply, so everything
+// downstream — validation, the three generation modes, highlighting, CSV — runs
+// unchanged.
+//
+// Two things the ESG-Fx format allows that a naive editor would get wrong:
+// event names repeat (SVM has two `take` vertices, told apart by their feature
+// expression), so edges reference vertices by id rather than by name; and a
+// feature model's meaning includes its cross-tree constraints, so those are
+// carried through an edit rather than dropped.
+// ---------------------------------------------------------------------------
+
+const PSEUDO_START = '[';
+const PSEUDO_END = ']';
+
+let editorState = null;
+let nextEventId = 1;
+
+function newEventId() {
+    return 'v' + (nextEventId++);
+}
+
+function minimalModel() {
+    const eventId = newEventId();
+    return {
+        features: [
+            {name: 'Root', parent: '', relation: 'mandatory', abstract: true},
+            {name: 'A', parent: 'Root', relation: 'mandatory', abstract: false}
+        ],
+        events: [{id: eventId, name: 'e1', expression: 'A'}],
+        edges: [{source: PSEUDO_START, target: eventId}, {source: eventId, target: PSEUDO_END}],
+        constraints: []
+    };
+}
+
+function escapeXml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+function featureNames() {
+    return editorState.features.map((feature) => feature.name).filter((name) => name);
+}
+
+/** Children keyed by parent name, in the order the user entered them. */
+function childrenByParent() {
+    const children = {};
+    editorState.features.forEach((feature) => {
+        if (!feature.parent) {
+            return;
+        }
+        (children[feature.parent] = children[feature.parent] || []).push(feature);
+    });
+    return children;
+}
+
+// A group's kind lives on the parent in FeatureIDE XML but on the child in the
+// editor, so it is derived: or/alternative children make an <or>/<alt> parent,
+// anything else an <and>.
+function groupTagFor(children) {
+    if (children.some((child) => child.relation === 'or')) {
+        return 'or';
+    }
+    if (children.some((child) => child.relation === 'alternative')) {
+        return 'alt';
+    }
+    return 'and';
+}
+
+function serializeFeatureModel() {
+    const children = childrenByParent();
+    const root = editorState.features[0];
+
+    function emit(feature, isRoot, depth) {
+        const indent = '  '.repeat(depth + 2);
+        const kids = children[feature.name] || [];
+        const attributes = [];
+        if (feature.abstract) {
+            attributes.push('abstract="true"');
+        }
+        // The root is mandatory by convention; elsewhere it only means something
+        // inside an and-group.
+        if (isRoot || feature.relation === 'mandatory') {
+            attributes.push('mandatory="true"');
+        }
+        attributes.push('name="' + escapeXml(feature.name) + '"');
+
+        if (!kids.length) {
+            return indent + '<feature ' + attributes.join(' ') + '/>';
+        }
+        const tag = groupTagFor(kids);
+        return indent + '<' + tag + ' ' + attributes.join(' ') + '>\n'
+            + kids.map((kid) => emit(kid, false, depth + 1)).join('\n') + '\n'
+            + indent + '</' + tag + '>';
+    }
+
+    const rules = (editorState.constraints || []).map((constraint) => '    ' + constraint.rule);
+    const constraintsBlock = rules.length
+        ? '  <constraints>\n' + rules.join('\n') + '\n  </constraints>\n'
+        : '';
+
+    return '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n'
+        + '<featureModel>\n  <struct>\n'
+        + emit(root, true, 0) + '\n'
+        + '  </struct>\n'
+        + constraintsBlock
+        + '</featureModel>\n';
+}
+
+function serializeEsgFx() {
+    // mxCell ids: 0 and 1 are the model's own scaffolding.
+    const cellIds = {};
+    cellIds[PSEUDO_START] = 2;
+    cellIds[PSEUDO_END] = 3;
+    editorState.events.forEach((event, index) => {
+        cellIds[event.id] = 4 + index;
+    });
+
+    const cells = [];
+    function vertex(cellId, name, x, y) {
+        cells.push('<mxCell id="' + cellId + '" parent="1" style="fontSize=15" vertex="1">'
+            + '<de.upb.adt.tsd.EventNode as="value" code="" description="" name="' + escapeXml(name) + '"/>'
+            + '<mxGeometry as="geometry" height="30.0" width="80.0" x="' + x + '.0" y="' + y + '.0"/>'
+            + '</mxCell>');
+    }
+
+    vertex(cellIds[PSEUDO_START], PSEUDO_START, 20, 300);
+    vertex(cellIds[PSEUDO_END], PSEUDO_END, 20 + 140 * (editorState.events.length + 1), 300);
+    editorState.events.forEach((event, index) => {
+        // The parser splits the name on '/', so the expression is not optional.
+        vertex(cellIds[event.id], event.name + '/' + event.expression,
+            140 + 140 * index, 220 + 80 * (index % 3));
+    });
+
+    let edgeId = 4 + editorState.events.length;
+    editorState.edges.forEach((edge) => {
+        const source = cellIds[edge.source];
+        const target = cellIds[edge.target];
+        if (source === undefined || target === undefined) {
+            return;
+        }
+        cells.push('<mxCell edge="1" id="' + (edgeId++) + '" parent="1" source="' + source
+            + '" style="" target="' + target + '" value="">'
+            + '<mxGeometry as="geometry" relative="1"/></mxCell>');
+    });
+
+    return '<?xml version="1.0" encoding="UTF-8"?><mxGraphModel><root>'
+        + '<mxCell id="0"/><mxCell id="1" parent="0"/>'
+        + cells.join('') + '</root></mxGraphModel>';
+}
+
+/** Pulls the <rule> elements out of a feature model file so they survive editing. */
+function constraintsFromXml(xml) {
+    if (!xml) {
+        return [];
+    }
+    const parsed = new DOMParser().parseFromString(xml, 'application/xml');
+    const serializer = new XMLSerializer();
+    return Array.from(parsed.getElementsByTagName('rule')).map((rule) => ({
+        rule: serializer.serializeToString(rule).replace(/\s+/g, ' ').trim(),
+        label: describeRule(rule),
+        editable: false
+    }));
+}
+
+/** A readable summary where the rule is a shape the editor itself can produce. */
+function describeRule(rule) {
+    const implication = rule.firstElementChild;
+    if (implication && implication.tagName === 'imp' && implication.children.length === 2) {
+        const left = implication.children[0];
+        const right = implication.children[1];
+        if (left.tagName === 'var' && right.tagName === 'var') {
+            return left.textContent + ' requires ' + right.textContent;
+        }
+        if (left.tagName === 'var' && right.tagName === 'not'
+                && right.firstElementChild && right.firstElementChild.tagName === 'var') {
+            return left.textContent + ' excludes ' + right.firstElementChild.textContent;
+        }
+    }
+    return 'constraint kept from the loaded model';
+}
+
+function constraintRule(kind, left, right) {
+    return kind === 'requires'
+        ? '<rule><imp><var>' + escapeXml(left) + '</var><var>' + escapeXml(right) + '</var></imp></rule>'
+        : '<rule><imp><var>' + escapeXml(left) + '</var><not><var>' + escapeXml(right)
+            + '</var></not></imp></rule>';
+}
+
+/** Problems the backend would only report as a parse failure or a confusing model. */
+function editorProblems() {
+    const problems = [];
+    const names = featureNames();
+
+    if (!editorState.features.length || !editorState.features[0].name) {
+        problems.push('The first feature is the root and needs a name.');
+    }
+    if (new Set(names).size !== names.length) {
+        problems.push('Feature names must be unique.');
+    }
+    editorState.features.slice(1).forEach((feature, index) => {
+        if (!feature.parent) {
+            problems.push('Feature ' + (feature.name || index + 2) + ' has no parent.');
+        }
+    });
+
+    const children = childrenByParent();
+    Object.keys(children).forEach((parent) => {
+        const relations = new Set(children[parent].map((child) => child.relation));
+        if ((relations.has('or') || relations.has('alternative')) && relations.size > 1) {
+            problems.push('Children of ' + parent + ' mix group kinds; an or-group or '
+                + 'alternative-group cannot also hold mandatory or optional children.');
+        }
+    });
+
+    // Event names may repeat — the feature expression is what tells two
+    // same-named vertices apart — so only the expression itself is checked.
+    editorState.events.forEach((event) => {
+        if (!event.name) {
+            problems.push('An event has no name.');
+        } else if (event.name === PSEUDO_START || event.name === PSEUDO_END) {
+            problems.push('An event cannot be named ' + event.name + '.');
+        } else if (event.name.indexOf('/') >= 0) {
+            problems.push('Event names cannot contain "/".');
+        }
+        if (!event.expression) {
+            problems.push('Event ' + (event.name || '?') + ' has no feature expression.');
+        } else if (names.indexOf(event.expression.replace('!', '')) < 0) {
+            problems.push('Event ' + (event.name || '?') + ' refers to unknown feature '
+                + event.expression.replace('!', '') + '.');
+        }
+    });
+
+    if (!editorState.events.length) {
+        problems.push('The ESG-Fx needs at least one event.');
+    }
+    if (!editorState.edges.some((edge) => edge.source === PSEUDO_START)) {
+        problems.push('No edge leaves the pseudo start.');
+    }
+    if (!editorState.edges.some((edge) => edge.target === PSEUDO_END)) {
+        problems.push('No edge reaches the pseudo end.');
+    }
+    return problems;
+}
+
+function editorSelect(options, value, onChange, extraClass) {
+    const select = document.createElement('select');
+    select.className = 'border border-slate-300 rounded px-2 py-1 text-xs bg-white ' + (extraClass || '');
+    options.forEach((option) => {
+        const element = document.createElement('option');
+        element.value = option.value;
+        element.textContent = option.label;
+        select.appendChild(element);
+    });
+    select.value = value;
+    select.addEventListener('change', () => onChange(select.value));
+    return select;
+}
+
+function editorInput(value, placeholder, onChange, extraClass) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = value;
+    input.placeholder = placeholder;
+    input.className = 'border border-slate-300 rounded px-2 py-1 text-xs ' + (extraClass || 'w-28');
+    input.addEventListener('input', () => onChange(input.value));
+    return input;
+}
+
+function removeButton(onClick) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'text-xs text-slate-400 hover:text-red-700 px-1';
+    button.textContent = '✕';
+    button.addEventListener('click', onClick);
+    return button;
+}
+
+function renderFeatureEditorRows() {
+    const container = document.getElementById('feature-rows');
+    container.replaceChildren();
+    const names = featureNames();
+
+    editorState.features.forEach((feature, index) => {
+        const row = document.createElement('div');
+        row.className = 'flex flex-wrap items-center gap-2';
+
+        row.appendChild(editorInput(feature.name, 'name', (value) => {
+            // Children, feature expressions and constraints all name the feature,
+            // so a rename has to follow through.
+            const previous = feature.name;
+            feature.name = value;
+            editorState.features.forEach((other) => {
+                if (other.parent === previous) {
+                    other.parent = value;
+                }
+            });
+            editorState.events.forEach((event) => {
+                if (event.expression === previous) {
+                    event.expression = value;
+                } else if (event.expression === '!' + previous) {
+                    event.expression = '!' + value;
+                }
+            });
+            (editorState.constraints || []).forEach((constraint) => {
+                if (!constraint.editable) {
+                    return;
+                }
+                if (constraint.left === previous) {
+                    constraint.left = value;
+                }
+                if (constraint.right === previous) {
+                    constraint.right = value;
+                }
+                constraint.rule = constraintRule(constraint.kind, constraint.left, constraint.right);
+                constraint.label = constraint.left + ' ' + constraint.kind + ' ' + constraint.right;
+            });
+            scheduleEditorChange();
+        }));
+
+        if (index === 0) {
+            const rootTag = document.createElement('span');
+            rootTag.className = 'text-xs text-slate-400';
+            rootTag.textContent = 'root';
+            row.appendChild(rootTag);
+        } else {
+            row.appendChild(editorSelect(
+                names.filter((name) => name !== feature.name).map((name) => ({value: name, label: name})),
+                feature.parent, (value) => { feature.parent = value; scheduleEditorChange(); }));
+
+            row.appendChild(editorSelect([
+                {value: 'mandatory', label: 'mandatory'},
+                {value: 'optional', label: 'optional'},
+                {value: 'or', label: 'or-group'},
+                {value: 'alternative', label: 'alternative-group'}
+            ], feature.relation, (value) => { feature.relation = value; scheduleEditorChange(); }));
+        }
+
+        const abstractLabel = document.createElement('label');
+        abstractLabel.className = 'inline-flex items-center gap-1 text-xs text-slate-600';
+        const abstractBox = document.createElement('input');
+        abstractBox.type = 'checkbox';
+        abstractBox.checked = feature.abstract;
+        abstractBox.addEventListener('change', () => {
+            feature.abstract = abstractBox.checked;
+            scheduleEditorChange();
+        });
+        abstractLabel.append(abstractBox, document.createTextNode('abstract'));
+        row.appendChild(abstractLabel);
+
+        if (index > 0) {
+            row.appendChild(removeButton(() => {
+                editorState.features = editorState.features.filter((other) => other !== feature);
+                editorState.features.forEach((other) => {
+                    if (other.parent === feature.name) {
+                        other.parent = editorState.features[0].name;
+                    }
+                });
+                renderEditor();
+                scheduleEditorChange();
+            }));
+        }
+
+        container.appendChild(row);
+    });
+}
+
+function renderConstraintRows() {
+    const container = document.getElementById('constraint-rows');
+    container.replaceChildren();
+    const names = featureNames().map((name) => ({value: name, label: name}));
+
+    function refresh(constraint) {
+        constraint.rule = constraintRule(constraint.kind, constraint.left, constraint.right);
+        constraint.label = constraint.left + ' ' + constraint.kind + ' ' + constraint.right;
+        scheduleEditorChange();
+    }
+
+    (editorState.constraints || []).forEach((constraint) => {
+        const row = document.createElement('div');
+        row.className = 'flex flex-wrap items-center gap-2';
+
+        if (constraint.editable) {
+            row.appendChild(editorSelect(names, constraint.left,
+                (value) => { constraint.left = value; refresh(constraint); }));
+            row.appendChild(editorSelect([
+                {value: 'requires', label: 'requires'},
+                {value: 'excludes', label: 'excludes'}
+            ], constraint.kind, (value) => { constraint.kind = value; refresh(constraint); }));
+            row.appendChild(editorSelect(names, constraint.right,
+                (value) => { constraint.right = value; refresh(constraint); }));
+        } else {
+            // Anything richer than requires/excludes is kept exactly as written
+            // rather than approximated, so the model keeps its meaning.
+            const label = document.createElement('span');
+            label.className = 'text-xs text-slate-600';
+            label.textContent = constraint.label;
+            const kept = document.createElement('span');
+            kept.className = 'text-xs text-slate-400';
+            kept.textContent = '— kept as written';
+            row.append(label, kept);
+        }
+
+        row.appendChild(removeButton(() => {
+            editorState.constraints = editorState.constraints.filter((other) => other !== constraint);
+            renderEditor();
+            scheduleEditorChange();
+        }));
+
+        container.appendChild(row);
+    });
+}
+
+/** Same name twice needs the expression alongside it to be tellable apart. */
+function vertexLabel(event) {
+    const duplicated = editorState.events.filter((other) => other.name === event.name).length > 1;
+    return duplicated ? event.name + '/' + event.expression : event.name;
+}
+
+function renderEventAndEdgeRows() {
+    const eventRows = document.getElementById('event-rows');
+    const edgeRows = document.getElementById('edge-rows');
+    eventRows.replaceChildren();
+    edgeRows.replaceChildren();
+
+    const expressionOptions = [];
+    featureNames().forEach((name) => {
+        expressionOptions.push({value: name, label: name});
+        expressionOptions.push({value: '!' + name, label: '!' + name});
+    });
+
+    editorState.events.forEach((event) => {
+        const row = document.createElement('div');
+        row.className = 'flex flex-wrap items-center gap-2';
+
+        row.appendChild(editorInput(event.name, 'event', (value) => {
+            event.name = value;
+            scheduleEditorChange();
+        }));
+
+        const slash = document.createElement('span');
+        slash.className = 'text-xs text-slate-400';
+        slash.textContent = '/';
+        row.appendChild(slash);
+
+        row.appendChild(editorSelect(expressionOptions, event.expression,
+            (value) => { event.expression = value; scheduleEditorChange(); }));
+
+        row.appendChild(removeButton(() => {
+            editorState.events = editorState.events.filter((other) => other !== event);
+            editorState.edges = editorState.edges.filter(
+                (edge) => edge.source !== event.id && edge.target !== event.id);
+            renderEditor();
+            scheduleEditorChange();
+        }));
+
+        eventRows.appendChild(row);
+    });
+
+    const vertexOptions = [{value: PSEUDO_START, label: PSEUDO_START}]
+        .concat(editorState.events.map((event) => ({value: event.id, label: vertexLabel(event)})))
+        .concat([{value: PSEUDO_END, label: PSEUDO_END}]);
+
+    editorState.edges.forEach((edge) => {
+        const row = document.createElement('div');
+        row.className = 'flex flex-wrap items-center gap-2';
+
+        row.appendChild(editorSelect(vertexOptions, edge.source,
+            (value) => { edge.source = value; scheduleEditorChange(); }));
+
+        const arrow = document.createElement('span');
+        arrow.className = 'text-xs text-slate-400';
+        arrow.textContent = '→';
+        row.appendChild(arrow);
+
+        row.appendChild(editorSelect(vertexOptions, edge.target,
+            (value) => { edge.target = value; scheduleEditorChange(); }));
+
+        row.appendChild(removeButton(() => {
+            editorState.edges = editorState.edges.filter((other) => other !== edge);
+            renderEditor();
+            scheduleEditorChange();
+        }));
+
+        edgeRows.appendChild(row);
+    });
+}
+
+function renderEditor() {
+    renderFeatureEditorRows();
+    renderConstraintRows();
+    renderEventAndEdgeRows();
+}
+
+let editorTimer = null;
+
+function scheduleEditorChange() {
+    clearTimeout(editorTimer);
+    editorTimer = setTimeout(() => {
+        renderEditor();
+        reportEditorProblems();
+    }, VALIDATION_DEBOUNCE_MS);
+}
+
+function reportEditorProblems() {
+    const status = document.getElementById('editor-status');
+    const problems = editorProblems();
+    const applyButton = document.getElementById('apply-model');
+
+    if (problems.length) {
+        status.className = 'px-4 py-3 border-t border-slate-200 text-sm text-red-700';
+        status.textContent = problems[0]
+            + (problems.length > 1 ? ' (+' + (problems.length - 1) + ' more)' : '');
+        applyButton.disabled = true;
+        applyButton.classList.add('opacity-40', 'cursor-not-allowed');
+    } else {
+        status.className = 'px-4 py-3 border-t border-slate-200 text-sm text-slate-500';
+        status.textContent = editorState.features.length + ' features, '
+            + editorState.events.length + ' events, ' + editorState.edges.length + ' edges, '
+            + (editorState.constraints || []).length + ' constraints. Apply to load this model.';
+        applyButton.disabled = false;
+        applyButton.classList.remove('opacity-40', 'cursor-not-allowed');
+    }
+    return problems.length === 0;
+}
+
+async function applyEditorModel() {
+    if (!reportEditorProblems()) {
+        return;
+    }
+    await loadUploadedModel(serializeFeatureModel(), serializeEsgFx());
+}
+
+/** Rebuilds editor state from a loaded model, so a bundled example can be edited. */
+function editorStateFromPayload(payload) {
+    const parentOf = {};
+    payload.featureModel.edges.forEach((edge) => {
+        parentOf[edge.data.target] = edge.data.source;
+    });
+
+    const features = payload.featureModel.nodes.map((node) => ({
+        name: node.data.id,
+        parent: parentOf[node.data.id] || '',
+        relation: node.data.type === 'root' ? 'mandatory' : node.data.type,
+        abstract: Boolean(node.data.isAbstract)
+    }));
+
+    // Vertex ids carry over from the payload, so edges keep pointing at the same
+    // vertex even where two of them share an event name.
+    const idOf = {};
+    const events = [];
+    payload.esgFx.nodes.forEach((node) => {
+        if (node.data.isPseudoStart) {
+            idOf[node.data.id] = PSEUDO_START;
+        } else if (node.data.isPseudoEnd) {
+            idOf[node.data.id] = PSEUDO_END;
+        } else {
+            const id = newEventId();
+            idOf[node.data.id] = id;
+            events.push({id: id, name: node.data.label, expression: node.data.featureExpression || ''});
+        }
+    });
+
+    const edges = payload.esgFx.edges.map((edge) => ({
+        source: idOf[edge.data.source],
+        target: idOf[edge.data.target]
+    }));
+
+    return {
+        features: features,
+        events: events,
+        edges: edges,
+        constraints: constraintsFromXml(payload.featureModelXml)
+    };
+}
+
+document.getElementById('add-feature').addEventListener('click', () => {
+    editorState.features.push({
+        name: 'F' + (editorState.features.length + 1),
+        parent: editorState.features[0].name,
+        relation: 'optional',
+        abstract: false
+    });
+    renderEditor();
+    reportEditorProblems();
+});
+
+document.getElementById('add-event').addEventListener('click', () => {
+    const names = featureNames();
+    editorState.events.push({
+        id: newEventId(),
+        name: 'e' + (editorState.events.length + 1),
+        expression: names.length ? names[names.length - 1] : ''
+    });
+    renderEditor();
+    reportEditorProblems();
+});
+
+document.getElementById('add-edge').addEventListener('click', () => {
+    editorState.edges.push({source: PSEUDO_START, target: PSEUDO_END});
+    renderEditor();
+    reportEditorProblems();
+});
+
+document.getElementById('add-constraint').addEventListener('click', () => {
+    const names = featureNames();
+    if (names.length < 2) {
+        return;
+    }
+    const left = names[names.length - 2];
+    const right = names[names.length - 1];
+    editorState.constraints = editorState.constraints || [];
+    editorState.constraints.push({
+        kind: 'requires', left: left, right: right,
+        rule: constraintRule('requires', left, right),
+        label: left + ' requires ' + right,
+        editable: true
+    });
+    renderEditor();
+    reportEditorProblems();
+});
+
+document.getElementById('sample-size').addEventListener('input', (event) => {
+    event.target.dataset.userSet = 'true';
+});
+
+document.getElementById('apply-model').addEventListener('click', applyEditorModel);
+
+document.getElementById('editor-preset').addEventListener('change', async (event) => {
+    const preset = event.target.value;
+    event.target.value = '';
+    if (!preset) {
+        return;
+    }
+    if (preset === 'minimal') {
+        editorState = minimalModel();
+    } else {
+        editorState = editorStateFromPayload(
+            await fetch('/api/example/' + preset).then((response) => response.json()));
+    }
+    renderEditor();
+    reportEditorProblems();
+});
+
+document.getElementById('source-select').addEventListener('change', (event) => {
+    const source = event.target.value;
+    document.getElementById('example-picker').classList.toggle('hidden', source !== 'example');
+    document.getElementById('upload-picker').classList.toggle('hidden', source !== 'upload');
+    document.getElementById('editor').classList.toggle('hidden', source !== 'draw');
+
+    if (source === 'example') {
+        loadExample(document.getElementById('example-select').value);
+    } else if (source === 'draw') {
+        if (!editorState) {
+            editorState = minimalModel();
+        }
+        renderEditor();
+        reportEditorProblems();
+        applyEditorModel();
+    }
+});

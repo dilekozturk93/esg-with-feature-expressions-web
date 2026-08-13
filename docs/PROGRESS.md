@@ -83,6 +83,15 @@
 - **Note:** sampled mode is deliberately *not* gated on the configuration count. That gate exists for all-products because it bounds how much gets generated; here the sample size does that, and the request timeout bounds the enumeration walk. This is also why switching to an over-limit model now falls back to sampled rather than specific-product.
 - **Deferred:** UniGen3. It is an external native binary needing DIMACS export and packaging into the deployment image; the interface is in place for it to slot in after deployment.
 
+## Phase 3F: Draw in-browser (Mode 3)
+- [x] Form-based editor for the feature tree, cross-tree constraints, events and edges, with live problem reporting
+- [x] Serializes to FeatureIDE XML and mxGraph `.mxe`, then loads through the existing upload path — so validation, all three generation modes, highlighting and CSV are untouched
+- [x] "Start from…" loads the minimal model or any bundled example into the editor
+- **Verification:** Round-trip is exact for all three examples. Loading SVM/e-Mail/Elevator into the editor and writing them back reproduces the configuration count (12→12, 23→23, 42→42), the feature tree, and the ESG-Fx vertex and edge sets. Generating from the round-tripped model then matches the preloaded model product for product — 3 SPLs × 4 coverage lengths over all 77 products, zero differences once the engine's `_N` vertex-id suffix is normalised away (that suffix reflects the order vertices appear in the file, not their identity). A drawn minimal model generates at 100% coverage, and all three modes run on a drawn model.
+- **Note — event names repeat:** SVM has two `take` vertices told apart only by their feature expression, so the editor keys edges on vertex ids, not names, and shows the expression beside a name that occurs twice. Keying on names silently rewired edges to the wrong vertex, and a comparison that matched edges by label could not see it.
+- **Note — constraints are part of the meaning:** `<constraints>` is absent from the graph export, so an early version dropped it and e-Mail went 23→31, Elevator 42→96 configurations. The editor now carries constraints through an edit: `requires`/`excludes` are editable, and richer formulas are kept exactly as written rather than approximated.
+- **Deferred:** drag-and-drop editing. The form covers Mode 3 functionally; a graphical layer can sit on the same state.
+
 ## Phase 4: Highlight + polish
 - [x] Click sequence → highlight on ESG-Fx, everything else dimmed
 - [x] Clear highlight button

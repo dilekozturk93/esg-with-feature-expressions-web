@@ -139,6 +139,19 @@ public class EsgFxModelLoader {
         }
     }
 
+    /** The example's feature model file as written, for callers that need what the graph export drops. */
+    public String featureModelXmlOf(String shortName) {
+        ExampleFiles files = EXAMPLES.get(shortName);
+        if (files == null) {
+            throw new IllegalArgumentException("Unknown example: " + shortName);
+        }
+        try {
+            return Files.readString(Path.of(requireExisting(files.featureModel())), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not read the feature model for " + shortName, e);
+        }
+    }
+
     private static String requireExisting(String relativePath) {
         File file = new File(relativePath);
         if (!file.exists()) {

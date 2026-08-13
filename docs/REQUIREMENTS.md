@@ -39,7 +39,9 @@ only the UI translates.
 own ESG-Fx file.
 
 **Mode 3 — Draw in-browser.** User constructs the feature model and the 
-ESG-Fx directly in the tool. Lowest priority — implemented last.
+ESG-Fx directly in the tool. Implemented as a form-based editor that writes 
+the same two files an upload supplies; a drag-and-drop layer is still to 
+come.
 
 Regardless of mode, the result is one feature model plus one ESG-Fx 
 delivered to the backend.
@@ -58,8 +60,11 @@ downloaded.
 every valid product configuration of the feature model.
 
 **Mode C — Sampled products.** Generate tests for a sample of 
-configurations drawn from the feature model. Sampling integration 
-(e.g., a uniform sampler such as UniGen) is a later-stage feature.
+configurations drawn from the feature model. The default sampler draws 
+uniformly over the valid-configuration space by enumeration, reproducibly 
+for a given seed. It sits behind `ProductConfigurationSampler`, so a 
+sampler that does not enumerate — UniGen3 — can replace it without 
+touching the generation path.
 
 ### FR3: Configuration count
 
@@ -125,16 +130,26 @@ API inside the engine (package `tr.edu.iyte.esgfx.api`), not
 re-implemented in the web layer. The web backend is a thin wrapper over 
 this API.
 
+All four entry points are implemented, and each delegates the generation 
+itself to the single-product API so they cannot drift apart.
+
 - `SingleProductTestGenerationAPI` — load a model, validate a 
   configuration, generate tests for one product, count valid 
-  configurations. **Implemented**, verified 308/308 against the RQ1 
-  pipelines' ground truth.
-- `MultiProductTestGenerationAPI` — generate for an explicit set of 
-  product configurations; delegates to the single-product API. *Not yet 
-  implemented (build order step 7).*
-- `AllProductsTestGenerationAPI` — generate for every valid 
-  configuration; delegates to the single-product API. *Not yet 
-  implemented (build order step 6).*
+  configurations. Verified 308/308 against the RQ1 pipelines' ground truth.
+- `MultiProductTestGenerationAPI` — generate for an explicit, ordered set 
+  of product configurations. Validates the whole set before generating any 
+  of it, and reports which product is at fault.
+- `AllProductsTestGenerationAPI` — generate for every valid configuration. 
+  Numbers products by their position among valid configurations, the same 
+  numbering the research pipelines use, so results line up file for file.
+- `SampledProductsTestGenerationAPI` — generate for a sample, drawn by a 
+  `ProductConfigurationSampler`. Sampled products keep their position in 
+  the full enumeration, so a sampled result can be checked against the 
+  all-products result with the same id.
+
+Each has a runnable check beside it — `SingleProductApiCheck`, 
+`AllProductsApiCheck`, `SampledProductsApiCheck` — that replays it against 
+the recorded ground truth.
 
 The original research pipelines (RQ1/RQ2 case classes, 
 TestSequenceRecorder, and the rest) are left untouched. The API is a 
@@ -200,3 +215,8 @@ No session state, no database. Each request is self-contained.
 8. Upload mode (Mode 2).
 9. Sampled mode (Mode C) — sampler integration.
 10. Draw-in-browser mode (Mode 3).
+
+Steps 1–10 are implemented. What remains is deployment (a public URL, a
+container or fat-jar configuration, README and demo material) and two
+deliberately deferred pieces: UniGen3 behind the sampler interface, and a
+drag-and-drop layer over the model editor.

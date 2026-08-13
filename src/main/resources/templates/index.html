@@ -28,6 +28,7 @@
                         class="border border-slate-300 rounded-md px-3 py-2 bg-white text-sm">
                     <option value="example">Bundled example</option>
                     <option value="upload">Upload</option>
+                    <option value="draw">Draw</option>
                 </select>
             </label>
 
@@ -84,6 +85,83 @@
 
     <div id="error-banner"
          class="hidden mt-5 rounded-lg border border-red-300 bg-red-50 text-red-800 px-4 py-3 text-sm"></div>
+
+    <section id="editor" class="hidden mt-5 bg-white rounded-lg border border-slate-200">
+        <div class="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <h2 class="font-medium">Model editor</h2>
+            <div class="flex items-center gap-2">
+                <select id="editor-preset"
+                        class="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
+                    <option value="">Start from…</option>
+                    <option value="minimal">Minimal model</option>
+                    <option value="svm">Soda Vending Machine</option>
+                    <option value="em">e-Mail</option>
+                    <option value="el">Elevator</option>
+                </select>
+                <button id="apply-model" type="button"
+                        class="text-xs px-3 py-1.5 rounded bg-slate-900 text-white hover:bg-slate-800">
+                    Apply model
+                </button>
+            </div>
+        </div>
+
+        <div class="px-4 py-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-medium">Features</h3>
+                    <button id="add-feature" type="button"
+                            class="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">
+                        + Feature
+                    </button>
+                </div>
+                <div id="feature-rows" class="space-y-2"></div>
+                <p class="text-xs text-slate-500 mt-2">
+                    The first feature is the root. A parent's children must agree on
+                    their relation: either mandatory/optional, or all or-group, or all
+                    alternative-group.
+                </p>
+
+                <div class="flex items-center justify-between mt-4 mb-2">
+                    <h3 class="text-sm font-medium">Constraints</h3>
+                    <button id="add-constraint" type="button"
+                            class="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">
+                        + Constraint
+                    </button>
+                </div>
+                <div id="constraint-rows" class="space-y-2"></div>
+                <p class="text-xs text-slate-500 mt-2">
+                    Cross-tree constraints. Richer formulas from a loaded model are kept
+                    exactly as written rather than rewritten.
+                </p>
+            </div>
+
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-medium">Events</h3>
+                    <button id="add-event" type="button"
+                            class="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">
+                        + Event
+                    </button>
+                </div>
+                <div id="event-rows" class="space-y-2"></div>
+
+                <div class="flex items-center justify-between mt-4 mb-2">
+                    <h3 class="text-sm font-medium">Edges</h3>
+                    <button id="add-edge" type="button"
+                            class="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">
+                        + Edge
+                    </button>
+                </div>
+                <div id="edge-rows" class="space-y-2"></div>
+                <p class="text-xs text-slate-500 mt-2">
+                    <code>[</code> is the pseudo start and <code>]</code> the pseudo end.
+                    Every event needs a feature expression.
+                </p>
+            </div>
+        </div>
+
+        <div id="editor-status" class="px-4 py-3 border-t border-slate-200 text-sm text-slate-500"></div>
+    </section>
 
     <div class="mt-5 grid grid-cols-1 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] gap-5">
 
