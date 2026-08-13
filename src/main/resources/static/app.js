@@ -476,6 +476,12 @@ function currentMode() {
 // All-products mode has no configuration to choose or validate — the engine
 // enumerates them — so the feature list and validation line step aside, and the
 // only gate left is whether the model is small enough to answer in one request.
+const GENERATE_LABELS = {
+    specific: 'Generate tests',
+    sampled: 'Generate for the sample',
+    all: 'Generate for all products'
+};
+
 function applyMode() {
     const hint = document.getElementById('all-products-hint');
     const allRadio = document.querySelector('input[name="generation-mode"][value="all"]');
@@ -486,32 +492,41 @@ function applyMode() {
 
     // Switching from a small example to one over the limit would otherwise
     // leave all-products selected but disabled, with the feature list hidden
-    // and nothing to press.
+    // and nothing to press. Sampling is the mode that still works there.
     allRadio.disabled = overLimit;
     if (overLimit && allRadio.checked) {
-        document.querySelector('input[name="generation-mode"][value="specific"]').checked = true;
+        document.querySelector('input[name="generation-mode"][value="sampled"]').checked = true;
     }
 
-    const allMode = currentMode() === 'all';
-    document.getElementById('feature-section').classList.toggle('hidden', allMode);
-    generateButton.textContent = allMode ? 'Generate for all products' : 'Generate tests';
+    const mode = currentMode();
+    const needsFeatures = mode === 'specific';
+    document.getElementById('feature-section').classList.toggle('hidden', !needsFeatures);
+    document.getElementById('sample-settings').classList.toggle('hidden', mode !== 'sampled');
+    generateButton.textContent = GENERATE_LABELS[mode];
 
     if (!currentExample) {
         return;
     }
 
-    hint.classList.toggle('hidden', !allMode && !overLimit);
+    // The sample can never exceed the configuration space, so the input says so.
+    const sampleSize = document.getElementById('sample-size');
+    sampleSize.max = Math.min(count, currentExample.maxSampleSize || count);
+    if (Number(sampleSize.value) > Number(sampleSize.max)) {
+        sampleSize.value = sampleSize.max;
+    }
+
+    hint.classList.toggle('hidden', !(mode === 'all' || overLimit));
     if (overLimit) {
         hint.textContent = count.toLocaleString() + ' valid configurations, above the limit of '
-            + limit.toLocaleString() + ' — use a specific product.';
-    } else if (allMode) {
+            + limit.toLocaleString() + ' for all-products — sample instead.';
+    } else if (mode === 'all') {
         hint.textContent = 'Generates tests for all ' + count.toLocaleString() + ' valid configurations.';
     }
 
-    if (allMode) {
-        generateButton.disabled = overLimit;
-    } else {
+    if (needsFeatures) {
         validateAllBlocks();
+    } else {
+        generateButton.disabled = mode === 'all' && overLimit;
     }
 }
 
@@ -746,15 +761,23 @@ function renderResults(result) {
 
 async function generate() {
     clearError();
-    const allMode = currentMode() === 'all';
+    const mode = currentMode();
+    const allMode = mode === 'all';
     generateButton.disabled = true;
     const originalLabel = generateButton.textContent;
     generateButton.textContent = 'Generating…';
 
     const blocks = productBlocks();
-    const multi = !allMode && blocks.length > 1;
+    const multi = mode === 'specific' && blocks.length > 1;
     let request;
-    if (allMode) {
+    if (mode === 'sampled') {
+        request = {url: '/api/generate/sampled',
+            body: Object.assign(modelSourceBody(), {
+                coverageLength: selectedCoverageLength(),
+                sampleSize: Number(document.getElementById('sample-size').value),
+                seed: Number(document.getElementById('sample-seed').value)
+            })};
+    } else if (allMode) {
         request = {url: '/api/generate/all',
             body: Object.assign(modelSourceBody(), {coverageLength: selectedCoverageLength()})};
     } else if (multi) {
@@ -779,8 +802,8 @@ async function generate() {
             throw new Error(message);
         }
 
-        lastGenerationMode = allMode ? 'all' : (multi ? 'multi' : 'single');
-        if (allMode || multi) {
+        lastGenerationMode = mode === 'sampled' ? 'sampled' : (allMode ? 'all' : (multi ? 'multi' : 'single'));
+        if (mode === 'sampled' || allMode || multi) {
             allProducts = body.products;
             renderProductPicker(allProducts);
             renderResults(allProducts[0]);
@@ -833,8 +856,9 @@ function downloadCsv() {
     const url = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'}));
 
     const scope = lastGenerationMode === 'all' ? 'allProducts'
-        : (lastGenerationMode === 'multi' ? products.length + 'products'
-            : 'P' + latestResult.productId);
+        : (lastGenerationMode === 'sampled' ? 'sample' + products.length
+            : (lastGenerationMode === 'multi' ? products.length + 'products'
+                : 'P' + latestResult.productId));
 
     const link = document.createElement('a');
     link.href = url;

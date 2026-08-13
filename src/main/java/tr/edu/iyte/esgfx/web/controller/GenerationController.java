@@ -19,6 +19,7 @@ import tr.edu.iyte.esgfx.web.service.AllProductsTestGenerator;
 import tr.edu.iyte.esgfx.web.service.InvalidModelException;
 import tr.edu.iyte.esgfx.web.service.ModelSource;
 import tr.edu.iyte.esgfx.web.service.MultiProductTestGenerator;
+import tr.edu.iyte.esgfx.web.service.SampledProductsTestGenerator;
 import tr.edu.iyte.esgfx.web.service.SingleProductTestGenerator;
 import tr.edu.iyte.esgfx.web.service.TestGenerationResult;
 import tr.edu.iyte.esgfx.web.service.TooManyConfigurationsException;
@@ -37,13 +38,16 @@ public class GenerationController {
     private final SingleProductTestGenerator generator;
     private final MultiProductTestGenerator multiProductGenerator;
     private final AllProductsTestGenerator allProductsGenerator;
+    private final SampledProductsTestGenerator sampledProductsGenerator;
 
     public GenerationController(SingleProductTestGenerator generator,
             MultiProductTestGenerator multiProductGenerator,
-            AllProductsTestGenerator allProductsGenerator) {
+            AllProductsTestGenerator allProductsGenerator,
+            SampledProductsTestGenerator sampledProductsGenerator) {
         this.generator = generator;
         this.multiProductGenerator = multiProductGenerator;
         this.allProductsGenerator = allProductsGenerator;
+        this.sampledProductsGenerator = sampledProductsGenerator;
     }
 
     @PostMapping
@@ -126,6 +130,39 @@ public class GenerationController {
         }
     }
 
+    @PostMapping("/sampled")
+    public ResponseEntity<?> generateSampled(@RequestBody GenerateSampledRequest request) {
+        CompletableFuture<List<TestGenerationResult>> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                return sampledProductsGenerator.generate(request.toModelSource(), request.sampleSize(),
+                        request.seed(), request.coverageLength());
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        try {
+            List<TestGenerationResult> results =
+                    future.orTimeout(ALL_PRODUCTS_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
+            return ResponseEntity.ok(Map.of("products", results));
+        } catch (CompletionException ex) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof TimeoutException) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                        "error", "Generation timed out after " + ALL_PRODUCTS_TIMEOUT_SECONDS + " seconds"));
+            }
+            if (cause instanceof InvalidModelException) {
+                return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
+            }
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
+            }
+            throw ex;
+        }
+    }
+
     @PostMapping("/all")
     public ResponseEntity<?> generateAll(@RequestBody GenerateAllRequest request) {
         CompletableFuture<List<TestGenerationResult>> future = CompletableFuture.supplyAsync(() -> {
@@ -180,6 +217,15 @@ public class GenerationController {
     /** {@code products} is ordered; results come back numbered by that order. */
     public record GenerateMultiRequest(String splName, String featureModelXml, String esgFxXml,
             List<Map<String, Boolean>> products, int coverageLength) {
+
+        ModelSource toModelSource() {
+            return new ModelSource(splName, featureModelXml, esgFxXml);
+        }
+    }
+
+    /** {@code seed} is optional; omitting it uses the engine's default so runs repeat. */
+    public record GenerateSampledRequest(String splName, String featureModelXml, String esgFxXml,
+            int sampleSize, Long seed, int coverageLength) {
 
         ModelSource toModelSource() {
             return new ModelSource(splName, featureModelXml, esgFxXml);

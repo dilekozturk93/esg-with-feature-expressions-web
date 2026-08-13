@@ -141,10 +141,29 @@
                             <input type="radio" name="generation-mode" value="specific" checked/>
                             Specific product</label>
                         <label class="inline-flex items-center gap-1.5">
+                            <input type="radio" name="generation-mode" value="sampled"/>
+                            Sampled products</label>
+                        <label class="inline-flex items-center gap-1.5">
                             <input type="radio" name="generation-mode" value="all"/>
                             All products</label>
                     </div>
                     <p id="all-products-hint" class="hidden text-xs text-slate-500 mt-1.5"></p>
+
+                    <div id="sample-settings" class="hidden mt-3 flex flex-wrap items-end gap-4">
+                        <label class="text-sm">
+                            <span class="block text-slate-600 mb-1">Sample size</span>
+                            <input id="sample-size" type="number" min="1" value="5"
+                                   class="w-24 border border-slate-300 rounded-md px-2 py-1.5 text-sm"/>
+                        </label>
+                        <label class="text-sm">
+                            <span class="block text-slate-600 mb-1">Seed</span>
+                            <input id="sample-seed" type="number" value="42"
+                                   class="w-24 border border-slate-300 rounded-md px-2 py-1.5 text-sm"/>
+                        </label>
+                        <p class="text-xs text-slate-500 pb-1.5">
+                            Uniform over valid configurations; the same seed draws the same sample.
+                        </p>
+                    </div>
                 </div>
 
                 <div id="feature-section">

@@ -74,6 +74,15 @@
 - **Note on statelessness:** requests carry the model content rather than an upload handle. NFR3 asks for self-contained requests, and the deployment target sleeps when idle, so a server-side handle would go stale between upload and generation. The engine's converter reads paths rather than streams, so uploaded content is staged in a temp directory that is deleted before the request returns.
 - **Note:** well-formed XML in the wrong schema parses into an empty model without complaint, which surfaced only later as a 500. `EsgFxModelLoader.requireUsable` now rejects it at the door — a model with no root, no features or no vertices is not usable.
 
+## Phase 3E: Sampled products (Mode C)
+- [x] `ProductConfigurationSampler` interface so a non-enumerating sampler (UniGen) can replace the default later
+- [x] `UniformEnumerationSampler` — the research pipelines' method: draw positions uniformly over the valid-configuration space, then walk the enumeration to collect them
+- [x] `SampledProductsTestGenerationAPI` + `SampledProductsApiCheck`
+- [x] `POST /api/generate/sampled` with sample size and seed; third mode in the UI
+- **Verification:** 63 PASS / 0 FAIL. A sampled product keeps its position in the full enumeration, so each sampled result is compared against the all-products result carrying the same id — identical coverage, sequence count, event count, sequences and selection across three SPLs and four coverage lengths. Seed 42 reproduces its sample (SVM `[1,3,4,7,9]`, e-Mail `[5,7,8,10,11]`, Elevator `[7,9,13,34,39]`); seed 7 draws a different one. Over-large sample sizes clamp to the configuration count (SVM asked for 50, returned 12); `sampleSize` outside [1,200] is a 400. In the browser: 6 Elevator samples generate, populate the product picker, and every sequence highlights.
+- **Note:** sampled mode is deliberately *not* gated on the configuration count. That gate exists for all-products because it bounds how much gets generated; here the sample size does that, and the request timeout bounds the enumeration walk. This is also why switching to an over-limit model now falls back to sampled rather than specific-product.
+- **Deferred:** UniGen3. It is an external native binary needing DIMACS export and packaging into the deployment image; the interface is in place for it to slot in after deployment.
+
 ## Phase 4: Highlight + polish
 - [x] Click sequence → highlight on ESG-Fx, everything else dimmed
 - [x] Clear highlight button

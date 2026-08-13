@@ -13,6 +13,7 @@ import tr.edu.iyte.esgfx.api.SingleProductTestGenerationAPI;
 import tr.edu.iyte.esgfx.web.service.AllProductsTestGenerator;
 import tr.edu.iyte.esgfx.web.service.EsgFxJsonExporter;
 import tr.edu.iyte.esgfx.web.service.EsgFxModelLoader;
+import tr.edu.iyte.esgfx.web.service.SampledProductsTestGenerator;
 import tr.edu.iyte.esgfx.web.service.InvalidModelException;
 
 /**
@@ -44,6 +45,7 @@ public class ModelController {
         Map<String, Object> payload = exporter.export("Uploaded", model);
         payload.put("configurationCount", SingleProductTestGenerationAPI.countValidConfigurations(model));
         payload.put("allProductsLimit", AllProductsTestGenerator.MAX_CONFIGURATIONS);
+        payload.put("maxSampleSize", SampledProductsTestGenerator.MAX_SAMPLE_SIZE);
 
         return ResponseEntity.ok(payload);
     }
