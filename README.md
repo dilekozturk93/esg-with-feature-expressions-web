@@ -108,6 +108,25 @@ The expected result is 308/308 MATCH across three SPLs, 77 products and four
 coverage lengths. See `docs/PROGRESS.md` for what each check establishes and how
 to read a MATCH, EQUIVALENT or MISMATCH verdict.
 
+### Checking a packaged instance
+
+`scripts/smoke_test.py` drives a running instance and checks what packaging can
+break: that the bundled models are inside the jar, that generation reaches them,
+and that both samplers work. It is what CI runs against the container image, and
+it works against a deployed instance too.
+
+```bash
+python3 scripts/smoke_test.py http://localhost:8080
+python3 scripts/smoke_test.py https://<your-deployment> --require-unigen
+```
+
+Without `--require-unigen` a missing UniGen is reported and skipped rather than
+failing, since enumeration sampling still works without it.
+
+The `Container image` workflow builds the image on every push, starts it, and
+runs this script against it — so the image is exercised even though it is not
+built during development.
+
 ## Archiving as an artifact
 
 For a submission that wants a citable, reviewer-runnable artifact:

@@ -1,0 +1,54 @@
+# Builds the container image and drives the running container.
+#
+# The development machine has no Docker, so this is where the image itself gets
+# exercised: that it assembles at all, that the bundled models travel inside the
+# jar, and that the UniGen wheel resolves for linux/amd64.
+name: Container image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out with the engine submodule
+        uses: actions/checkout@v4
+        with:
+          # The engine is not on a public Maven repository and the bundled
+          # example models are copied from it, so the build needs it present.
+          submodules: recursive
+
+      - name: Build the image
+        run: docker build -t esgfx-web .
+
+      - name: Start the container
+        run: |
+          docker run -d --name esgfx -p 8080:8080 esgfx-web
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://localhost:8080/; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "the container did not answer within two minutes" >&2
+          docker logs esgfx
+          exit 1
+
+      - name: Check the packaging
+        # --require-unigen because the image is expected to have it; a plain
+        # local run skips UniGen instead of failing.
+        run: python3 scripts/smoke_test.py http://localhost:8080 --require-unigen
+
+      - name: Container logs
+        if: always()
+        run: docker logs esgfx || true
+
+      - name: Stop the container
+        if: always()
+        run: docker rm -f esgfx || true
