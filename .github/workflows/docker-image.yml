@@ -24,6 +24,18 @@ jobs:
           # example models are copied from it, so the build needs it present.
           submodules: recursive
 
+      # Named separately so a failure here is unmistakably about the submodule
+      # rather than about the image.
+      - name: Confirm the engine submodule is present
+        run: |
+          if [ ! -f lib/esg-core/pom.xml ]; then
+            echo "lib/esg-core is empty — the submodule was not checked out." >&2
+            echo "Its URL in .gitmodules must be https://, since the runner has no SSH key." >&2
+            ls -la lib/ || true
+            exit 1
+          fi
+          echo "engine submodule present at $(git rev-parse HEAD:lib/esg-core)"
+
       - name: Build the image
         run: docker build -t esgfx-web .
 
