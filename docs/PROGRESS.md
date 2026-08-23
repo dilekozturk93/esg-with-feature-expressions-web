@@ -122,9 +122,11 @@
 - [x] `scripts/smoke_test.py` and a `Container image` workflow that builds the image, starts it and runs the script against it with `--require-unigen`
 - **Verification of the workflow:** the smoke test was run locally against the jar standing alone in an empty directory, both without UniGen (reports and skips, exits 0) and with it through an absolute bridge path as the image uses (exits 0), and `--require-unigen` was confirmed to fail when UniGen is absent. The workflow YAML parses and its steps resolve. What only CI can settle is the Docker-specific part: image assembly and the `pyunigen` wheel on linux/amd64.
 - [ ] Deployed on Render with public URL
+- [ ] **Make the repository public.** It is private today, while the engine submodule is public. The README's clone command and the "Public GitHub repo" deliverable both assume public; a reviewer cannot clone it as it stands. The Zenodo image tarball does not depend on this, but the build-from-source path does.
 - [x] `scripts/smoke_test.py` and a `Container image` workflow that builds the image, starts it and runs the script against it with `--require-unigen`
 - **Verification of the workflow:** the smoke test was run locally against the jar standing alone in an empty directory, both without UniGen (reports and skips, exits 0) and with it through an absolute bridge path as the image uses (exits 0), and `--require-unigen` was confirmed to fail when UniGen is absent. The workflow YAML parses and its steps resolve. What only CI can settle is the Docker-specific part: image assembly and the `pyunigen` wheel on linux/amd64.
 - [ ] Deployed on Render with public URL
+- [ ] **Make the repository public.** It is private today, while the engine submodule is public. The README's clone command and the "Public GitHub repo" deliverable both assume public; a reviewer cannot clone it as it stands. The Zenodo image tarball does not depend on this, but the build-from-source path does.
 - [ ] README screenshots and the deployment URL, once it exists
 - [ ] Demo video recorded
 - [ ] Paper draft started
