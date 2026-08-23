@@ -5,6 +5,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.core.io.ClassPathResource;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import tr.edu.iyte.esgfx.api.LoadedSplModel;
 import tr.edu.iyte.esgfx.api.SingleProductTestGenerationAPI;
+import tr.edu.iyte.esgfx.model.featuremodel.Feature;
 
 /**
  * Loads a feature model and ESG-Fx pair, either from the bundled examples or
@@ -132,6 +135,23 @@ public class EsgFxModelLoader {
         if (model.getEsgFx() == null || model.getEsgFx().getVertexList().isEmpty()) {
             throw new InvalidModelException(
                     "No ESG-Fx was found in the uploaded file. It should be an .mxe graph.");
+        }
+
+        // A feature only reaches the engine through the events it labels: the
+        // expression map is built from the ESG-Fx, so a concrete feature no event
+        // mentions has no variable, and the solver rejects the clause that would
+        // refer to it. Caught here, it is an answer rather than a server error.
+        List<String> unusedFeatures = new ArrayList<>();
+        for (Feature feature : model.getFeatureModel().getFeatureSet()) {
+            if (!feature.isAbstract() && !model.getFeatureExpressionMap().containsKey(feature.getName())) {
+                unusedFeatures.add(feature.getName());
+            }
+        }
+        if (!unusedFeatures.isEmpty()) {
+            throw new InvalidModelException("These features label no event: "
+                    + String.join(", ", unusedFeatures)
+                    + ". Every concrete feature must appear in at least one event's feature "
+                    + "expression, or be marked abstract.");
         }
     }
 

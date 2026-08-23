@@ -119,6 +119,20 @@ const esgFxStyle = [
 const VALIDATION_DEBOUNCE_MS = 300;
 const DEFAULT_SAMPLE_SIZE = 5;
 
+// The engine works in levels; a reader should not have to. Level L covers
+// L-tuples of consecutive events: single events at 1, then couples, triples and
+// quadruples.
+const COVERAGE_NAMES = {
+    1: 'Event coverage',
+    2: 'Event-couple coverage',
+    3: 'Event-triple coverage',
+    4: 'Event-quadruple coverage'
+};
+
+function coverageNameFor(coverageLength) {
+    return COVERAGE_NAMES[coverageLength] || 'Coverage';
+}
+
 let featureModelGraph = null;
 let esgFxGraph = null;
 let currentSpl = null;
@@ -399,7 +413,9 @@ function applyModelPayload(payload) {
     resetProducts();
 
     setStat('stat-configs', payload.configurationCount.toLocaleString());
-    setStat('stat-features', payload.featureModel.nodes.length);
+    // Abstract features carry no truth value, so counting them would overstate
+    // how much there is to choose; payload.features is the selectable set.
+    setStat('stat-features', payload.features.length);
     setStat('stat-vertices', payload.esgFx.nodes.length);
     setStat('stat-edges', payload.esgFx.edges.length);
 
@@ -745,7 +761,7 @@ function renderResults(result) {
     latestResult = result;
 
     document.getElementById('result-coverage-label').textContent =
-        result.coverageType === 'event' ? 'Event coverage' : 'Edge coverage';
+        coverageNameFor(result.coverageLength);
     document.getElementById('result-coverage').textContent =
         result.coveragePercentage.toFixed(2).replace(/\.00$/, '') + '%';
     document.getElementById('result-sequences').textContent = result.sequenceCount;
@@ -965,7 +981,6 @@ window.addEventListener('resize', () => {
     [featureModelGraph, esgFxGraph].filter(Boolean).forEach(fitGraph);
 });
 
-loadExample(document.getElementById('example-select').value);
 
 // ---------------------------------------------------------------------------
 // Model editor (Mode 3)
@@ -995,8 +1010,8 @@ function minimalModel() {
     const eventId = newEventId();
     return {
         features: [
-            {name: 'Root', parent: '', relation: 'mandatory', abstract: true},
-            {name: 'A', parent: 'Root', relation: 'mandatory', abstract: false}
+            {name: 'Root', parent: '', mandatory: true, abstract: true, childGroup: 'and'},
+            {name: 'A', parent: 'Root', mandatory: true, abstract: false, childGroup: 'and'}
         ],
         events: [{id: eventId, name: 'e1', expression: 'A'}],
         edges: [{source: PSEUDO_START, target: eventId}, {source: eventId, target: PSEUDO_END}],
@@ -1026,21 +1041,41 @@ function childrenByParent() {
     return children;
 }
 
-// A group's kind lives on the parent in FeatureIDE XML but on the child in the
-// editor, so it is derived: or/alternative children make an <or>/<alt> parent,
-// anything else an <and>.
-function groupTagFor(children) {
-    if (children.some((child) => child.relation === 'or')) {
+// FeatureIDE puts the group kind on the parent — <and>, <or>, <alt> — and so
+// does the editor. Asking each child what kind of group it belongs to instead
+// lets a parent's children disagree, which is not a model anyone can mean.
+function groupTagOf(feature) {
+    return feature.childGroup === 'or' ? 'or'
+        : (feature.childGroup === 'alt' ? 'alt' : 'and');
+}
+
+/** How a feature reads in the diagram, which depends on the group it sits in. */
+function displayTypeOf(feature, index, byName) {
+    if (index === 0) {
+        return 'root';
+    }
+    const parent = byName[feature.parent];
+    const group = parent ? groupTagOf(parent) : 'and';
+    if (group === 'or') {
         return 'or';
     }
-    if (children.some((child) => child.relation === 'alternative')) {
-        return 'alt';
+    if (group === 'alt') {
+        return 'alternative';
     }
-    return 'and';
+    return feature.mandatory ? 'mandatory' : 'optional';
+}
+
+function featuresByName() {
+    const byName = {};
+    editorState.features.forEach((feature) => {
+        byName[feature.name] = feature;
+    });
+    return byName;
 }
 
 function serializeFeatureModel() {
     const children = childrenByParent();
+    const byName = featuresByName();
     const root = editorState.features[0];
 
     function emit(feature, isRoot, depth) {
@@ -1050,9 +1085,11 @@ function serializeFeatureModel() {
         if (feature.abstract) {
             attributes.push('abstract="true"');
         }
-        // The root is mandatory by convention; elsewhere it only means something
-        // inside an and-group.
-        if (isRoot || feature.relation === 'mandatory') {
+        // The root is mandatory by convention; elsewhere the flag only means
+        // anything inside an and-group, so it is written only there.
+        const parent = byName[feature.parent];
+        const inAndGroup = !parent || groupTagOf(parent) === 'and';
+        if (isRoot || (inAndGroup && feature.mandatory)) {
             attributes.push('mandatory="true"');
         }
         attributes.push('name="' + escapeXml(feature.name) + '"');
@@ -1060,7 +1097,7 @@ function serializeFeatureModel() {
         if (!kids.length) {
             return indent + '<feature ' + attributes.join(' ') + '/>';
         }
-        const tag = groupTagFor(kids);
+        const tag = groupTagOf(feature);
         return indent + '<' + tag + ' ' + attributes.join(' ') + '>\n'
             + kids.map((kid) => emit(kid, false, depth + 1)).join('\n') + '\n'
             + indent + '</' + tag + '>';
@@ -1176,15 +1213,6 @@ function editorProblems() {
         }
     });
 
-    const children = childrenByParent();
-    Object.keys(children).forEach((parent) => {
-        const relations = new Set(children[parent].map((child) => child.relation));
-        if ((relations.has('or') || relations.has('alternative')) && relations.size > 1) {
-            problems.push('Children of ' + parent + ' mix group kinds; an or-group or '
-                + 'alternative-group cannot also hold mandatory or optional children.');
-        }
-    });
-
     // Event names may repeat — the feature expression is what tells two
     // same-named vertices apart — so only the expression itself is checked.
     editorState.events.forEach((event) => {
@@ -1206,6 +1234,18 @@ function editorProblems() {
     if (!editorState.events.length) {
         problems.push('The ESG-Fx needs at least one event.');
     }
+
+    // A feature reaches the engine only through the events it labels, so a
+    // concrete feature no event mentions cannot be part of any configuration.
+    const labelled = new Set(editorState.events
+        .filter((event) => event.expression)
+        .map((event) => event.expression.replace('!', '')));
+    editorState.features
+        .filter((feature) => feature.name && !feature.abstract && !labelled.has(feature.name))
+        .forEach((feature) => {
+            problems.push('Feature ' + feature.name + ' labels no event. Give an event the '
+                + 'expression ' + feature.name + ', or mark the feature abstract.');
+        });
     if (!editorState.edges.some((edge) => edge.source === PSEUDO_START)) {
         problems.push('No edge leaves the pseudo start.');
     }
@@ -1252,6 +1292,8 @@ function renderFeatureEditorRows() {
     const container = document.getElementById('feature-rows');
     container.replaceChildren();
     const names = featureNames();
+    const byName = featuresByName();
+    const children = childrenByParent();
 
     editorState.features.forEach((feature, index) => {
         const row = document.createElement('div');
@@ -1296,16 +1338,51 @@ function renderFeatureEditorRows() {
             rootTag.textContent = 'root';
             row.appendChild(rootTag);
         } else {
+            const under = document.createElement('span');
+            under.className = 'text-xs text-slate-400';
+            under.textContent = 'under';
+            row.appendChild(under);
+
             row.appendChild(editorSelect(
                 names.filter((name) => name !== feature.name).map((name) => ({value: name, label: name})),
                 feature.parent, (value) => { feature.parent = value; scheduleEditorChange(); }));
 
-            row.appendChild(editorSelect([
-                {value: 'mandatory', label: 'mandatory'},
-                {value: 'optional', label: 'optional'},
-                {value: 'or', label: 'or-group'},
-                {value: 'alternative', label: 'alternative-group'}
-            ], feature.relation, (value) => { feature.relation = value; scheduleEditorChange(); }));
+            // Mandatory versus optional is only a choice inside an and-group; in an
+            // or-group or an alternative-group the group itself decides.
+            const parent = byName[feature.parent];
+            if (!parent || groupTagOf(parent) === 'and') {
+                row.appendChild(editorSelect([
+                    {value: 'mandatory', label: 'mandatory'},
+                    {value: 'optional', label: 'optional'}
+                ], feature.mandatory ? 'mandatory' : 'optional', (value) => {
+                    feature.mandatory = value === 'mandatory';
+                    scheduleEditorChange();
+                }));
+            } else {
+                const memberOf = document.createElement('span');
+                memberOf.className = 'text-xs text-slate-400';
+                memberOf.textContent = groupTagOf(parent) === 'or' ? 'in or-group' : 'in alternative-group';
+                row.appendChild(memberOf);
+            }
+        }
+
+        // Offered on every feature, so a group can be declared before its members
+        // exist; it only takes effect once the feature has children.
+        const childCount = (children[feature.name] || []).length;
+        const forms = document.createElement('span');
+        forms.className = 'text-xs text-slate-400';
+        forms.textContent = 'children form';
+        row.append(forms, editorSelect([
+            {value: 'and', label: 'and-group'},
+            {value: 'or', label: 'or-group'},
+            {value: 'alt', label: 'alternative-group'}
+        ], groupTagOf(feature), (value) => { feature.childGroup = value; scheduleEditorChange(); }));
+
+        if (!childCount) {
+            const noChildren = document.createElement('span');
+            noChildren.className = 'text-xs text-slate-300';
+            noChildren.textContent = '(no children yet)';
+            row.appendChild(noChildren);
         }
 
         const abstractLabel = document.createElement('label');
@@ -1328,8 +1405,7 @@ function renderFeatureEditorRows() {
                         other.parent = editorState.features[0].name;
                     }
                 });
-                renderEditor();
-                scheduleEditorChange();
+                refreshEditor();
             }));
         }
 
@@ -1512,11 +1588,27 @@ function editorStateFromPayload(payload) {
         parentOf[edge.data.target] = edge.data.source;
     });
 
+    // The backend reports the group kind on each child; the editor keeps it on
+    // the parent, so it is folded back up here.
+    const typeOf = {};
+    payload.featureModel.nodes.forEach((node) => {
+        typeOf[node.data.id] = node.data.type;
+    });
+
+    const childGroupOf = {};
+    payload.featureModel.edges.forEach((edge) => {
+        const childType = typeOf[edge.data.target];
+        if (childType === 'or' || childType === 'alternative') {
+            childGroupOf[edge.data.source] = childType === 'or' ? 'or' : 'alt';
+        }
+    });
+
     const features = payload.featureModel.nodes.map((node) => ({
         name: node.data.id,
         parent: parentOf[node.data.id] || '',
-        relation: node.data.type === 'root' ? 'mandatory' : node.data.type,
-        abstract: Boolean(node.data.isAbstract)
+        mandatory: node.data.type === 'root' || node.data.type === 'mandatory',
+        abstract: Boolean(node.data.isAbstract),
+        childGroup: childGroupOf[node.data.id] || 'and'
     }));
 
     // Vertex ids carry over from the payload, so edges keep pointing at the same
@@ -1597,8 +1689,16 @@ document.getElementById('editor-preset').addEventListener('change', async (event
     refreshEditor();
 });
 
-document.getElementById('source-select').addEventListener('change', (event) => {
-    const source = event.target.value;
+const ACTIVE_TAB_CLASSES = ['border-slate-900', 'text-slate-900', 'font-medium'];
+const IDLE_TAB_CLASSES = ['border-transparent', 'text-slate-500'];
+
+function selectSource(source) {
+    document.querySelectorAll('.source-tab').forEach((tab) => {
+        const active = tab.dataset.source === source;
+        tab.classList.remove(...(active ? IDLE_TAB_CLASSES : ACTIVE_TAB_CLASSES));
+        tab.classList.add(...(active ? ACTIVE_TAB_CLASSES : IDLE_TAB_CLASSES));
+    });
+
     document.getElementById('example-picker').classList.toggle('hidden', source !== 'example');
     document.getElementById('upload-picker').classList.toggle('hidden', source !== 'upload');
     document.getElementById('editor').classList.toggle('hidden', source !== 'draw');
@@ -1613,7 +1713,39 @@ document.getElementById('source-select').addEventListener('change', (event) => {
         }
         renderEditor();
         reportEditorProblems();
+        // Drawn straight away, so the canvas shows the model being edited rather
+        // than whichever example was on screen until the apply comes back.
+        renderEditorGraphs();
         applyEditorModel();
+    }
+}
+
+document.querySelectorAll('.source-tab').forEach((tab) => {
+    tab.addEventListener('click', () => selectSource(tab.dataset.source));
+});
+
+// The tabs read draw, upload, examples, but a first visit is most useful
+// looking at a model, so an example is what loads.
+selectSource('example');
+
+const modelInfo = document.getElementById('model-info');
+
+function toggleModelInfo(open) {
+    modelInfo.classList.toggle('hidden', !open);
+}
+
+['open-model-info', 'open-model-info-mark'].forEach((id) => {
+    document.getElementById(id).addEventListener('click', () => toggleModelInfo(true));
+});
+document.getElementById('close-model-info').addEventListener('click', () => toggleModelInfo(false));
+modelInfo.addEventListener('click', (event) => {
+    if (event.target === modelInfo) {
+        toggleModelInfo(false);
+    }
+});
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        toggleModelInfo(false);
     }
 });
 
@@ -1633,13 +1765,14 @@ const DELETE_BUTTON_IDS = ['delete-feature-selection', 'delete-esg-selection'];
 let drawMode = false;
 
 function editorFeatureElements() {
+    const byName = featuresByName();
     const nodes = editorState.features.filter((feature) => feature.name).map((feature, index) => ({
         data: {
             id: feature.name,
             label: feature.name,
             displayLabel: feature.name,
             engineName: feature.name,
-            type: index === 0 ? 'root' : feature.relation,
+            type: displayTypeOf(feature, index, byName),
             isAbstract: feature.abstract
         }
     }));
@@ -1693,8 +1826,9 @@ function addFeatureUnder(parentName) {
     editorState.features.push({
         name: name,
         parent: parentName || editorState.features[0].name,
-        relation: 'optional',
-        abstract: false
+        mandatory: false,
+        abstract: false,
+        childGroup: 'and'
     });
     refreshEditor();
 }
