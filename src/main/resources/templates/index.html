@@ -404,8 +404,8 @@
                 of a whole software product line.
             </p>
 
-            <svg viewBox="0 0 520 175" class="w-full max-w-xl mx-auto" role="img"
-                 aria-label="An ESG-Fx: a pseudo start, events labelled with feature expressions, and a pseudo end.">
+            <svg viewBox="0 0 560 168" class="w-full max-w-2xl mx-auto" role="img"
+                 aria-label="An ESG-Fx: a pseudo start, events each carrying a feature expression, and a pseudo end.">
                 <defs>
                     <marker id="info-arrow" viewBox="0 0 10 10" refX="9" refY="5"
                             markerWidth="6" markerHeight="6" orient="auto-start-reverse">
@@ -414,64 +414,65 @@
                 </defs>
 
                 <g stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#info-arrow)">
-                    <path d="M56 88 H68"/>
-                    <path d="M132 88 H152"/>
-                    <path d="M228 88 L248 62"/>
-                    <path d="M228 88 L248 122"/>
-                    <path d="M312 58 H332"/>
-                    <path d="M312 126 H332"/>
-                    <path d="M426 58 L452 82"/>
-                    <path d="M426 126 L452 96"/>
+                    <path d="M50 97 H62"/>
+                    <path d="M154 97 H176"/>
+                    <path d="M268 97 L290 68"/>
+                    <path d="M268 97 L290 126"/>
+                    <path d="M370 62 H392"/>
+                    <path d="M370 132 H392"/>
+                    <path d="M482 62 L500 86"/>
+                    <path d="M482 132 L500 108"/>
                 </g>
 
-                <g transform="translate(36,88)">
+                <g transform="translate(32,97)">
                     <path d="M0,-18 L18,0 L0,18 L-18,0 Z" fill="#16a34a"/>
-                    <text x="0" y="4" text-anchor="middle" fill="#fff" font-size="13" font-family="monospace">[</text>
+                    <text x="0" y="5" text-anchor="middle" fill="#fff" font-size="14" font-family="monospace">[</text>
                 </g>
-                <text x="36" y="122" text-anchor="middle" font-size="10" fill="#64748b">pseudo start</text>
+                <text x="32" y="133" text-anchor="middle" font-size="10" fill="#64748b">pseudo start</text>
 
                 <g fill="#334155">
-                    <rect x="68" y="72" width="64" height="32" rx="6"/>
-                    <rect x="152" y="72" width="76" height="32" rx="6"/>
-                    <rect x="248" y="42" width="64" height="32" rx="6"/>
-                    <rect x="248" y="110" width="64" height="32" rx="6"/>
-                    <rect x="332" y="42" width="94" height="32" rx="6"/>
-                    <rect x="332" y="110" width="94" height="32" rx="6"/>
-                </g>
-                <g fill="#ffffff" font-size="12" text-anchor="middle">
-                    <text x="100" y="92">pay</text>
-                    <text x="190" y="92">change</text>
-                    <text x="280" y="62">soda</text>
-                    <text x="280" y="130">tea</text>
-                    <text x="379" y="62">serveSoda</text>
-                    <text x="379" y="130">serveTea</text>
-                </g>
-                <g fill="#b45309" font-size="11" text-anchor="middle">
-                    <text x="100" y="118">!f</text>
-                    <text x="190" y="118">!f</text>
-                    <text x="280" y="36">s</text>
-                    <text x="379" y="36">s</text>
-                    <text x="280" y="156">t</text>
-                    <text x="379" y="156">t</text>
+                    <rect x="62" y="77" width="92" height="40" rx="6"/>
+                    <rect x="176" y="77" width="92" height="40" rx="6"/>
+                    <rect x="290" y="42" width="80" height="40" rx="6"/>
+                    <rect x="290" y="112" width="80" height="40" rx="6"/>
+                    <rect x="392" y="42" width="90" height="40" rx="6"/>
+                    <rect x="392" y="112" width="90" height="40" rx="6"/>
                 </g>
 
-                <g transform="translate(470,88)">
-                    <path d="M0,-18 L18,0 L0,18 L-18,0 Z" fill="#dc2626"/>
-                    <text x="0" y="4" text-anchor="middle" fill="#fff" font-size="13" font-family="monospace">]</text>
+                <g fill="#ffffff" font-size="12" text-anchor="middle">
+                    <text x="108" y="94">pay</text>
+                    <text x="222" y="94">change</text>
+                    <text x="330" y="59">soda</text>
+                    <text x="330" y="129">tea</text>
+                    <text x="437" y="59">serveSoda</text>
+                    <text x="437" y="129">serveTea</text>
                 </g>
-                <text x="470" y="122" text-anchor="middle" font-size="10" fill="#64748b">pseudo end</text>
+                <g fill="#fcd34d" font-size="10" text-anchor="middle">
+                    <text x="108" y="109">!FreeDrinks</text>
+                    <text x="222" y="109">!FreeDrinks</text>
+                    <text x="330" y="74">Soda</text>
+                    <text x="330" y="144">Tea</text>
+                    <text x="437" y="74">Soda</text>
+                    <text x="437" y="144">Tea</text>
+                </g>
+
+                <g transform="translate(520,97)">
+                    <path d="M0,-18 L18,0 L0,18 L-18,0 Z" fill="#dc2626"/>
+                    <text x="0" y="5" text-anchor="middle" fill="#fff" font-size="14" font-family="monospace">]</text>
+                </g>
+                <text x="520" y="133" text-anchor="middle" font-size="10" fill="#64748b">pseudo end</text>
             </svg>
 
             <p>
-                <strong>Reading it.</strong> A label restricts its event to the products
-                that hold the feature: <code>soda</code> and <code>serveSoda</code> carry
-                <code>s</code>, so they occur only in products with <em>Soda</em>.
-                <code>!f</code> negates <code>f</code>, so <code>pay</code> occurs in every
-                product <em>without</em> <em>FreeDrinks</em>. Here <code>f</code>,
-                <code>s</code>, <code>t</code> and <code>c</code> abbreviate
-                <em>FreeDrinks</em>, <em>Soda</em>, <em>Tea</em> and
-                <em>CancelPurchase</em>. Choosing a configuration drops the events whose
-                expression is false, leaving that product&rsquo;s own ESG.
+                <strong>Reading it.</strong> Each box carries the event name in white and
+                its feature expression underneath in amber. A feature expression restricts
+                its event to the products that satisfy it: <code>soda</code> and
+                <code>serveSoda</code> are labelled <em>Soda</em>, so they occur only in
+                products that have the <em>Soda</em> feature. A leading <code>!</code> is
+                negation, so <code>pay</code> and <code>change</code>, labelled
+                <em>!FreeDrinks</em>, occur in every product <em>without</em>
+                <em>FreeDrinks</em>. Choosing a configuration drops the events whose
+                expression comes out false, leaving that product&rsquo;s own ESG.
             </p>
 
             <p>
@@ -489,8 +490,8 @@
             </p>
 
             <p class="text-xs text-slate-500">
-                The bundled Soda Vending Machine is the model sketched above, with 15
-                vertices and 21 edges.
+                The sketch above is a fragment of the bundled Soda Vending Machine, whose
+                full model has 15 vertices and 21 edges.
             </p>
         </div>
 
