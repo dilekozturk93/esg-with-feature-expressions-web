@@ -110,7 +110,12 @@ def check_sampling(base, require_unigen):
     available = get(base, "/api/example/svm")["uniGenAvailable"]
     if not available:
         if require_unigen:
-            raise Failure("UniGen did not install; only enumeration sampling works")
+            raise Failure(
+                "UniGen is not installed here, so only enumeration sampling works. "
+                "In the image this means the wheel did not resolve: pyunigen "
+                "publishes wheels up to CPython 3.12 and for x86_64 only, so a "
+                "newer base image or another architecture leaves it out. The "
+                "build log says which, near 'UniGen NOT available in this image'.")
         print("  UniGen: not installed here, skipping")
         return
 

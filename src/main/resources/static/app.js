@@ -642,7 +642,7 @@ function eventWalkOf(sequence) {
         const previous = tuples[i - 1];
         const current = tuples[i];
         const overlaps = current.length > 1
-            && previous.slice(1).join(' ') === current.slice(0, -1).join(' ');
+            && previous.slice(1).join('\x00') === current.slice(0, -1).join('\x00');
         if (overlaps) {
             walk.push(current[current.length - 1]);
         } else {
@@ -976,12 +976,36 @@ loadUploadButton.addEventListener('click', async () => {
 
 
 
+function graphNamed(name) {
+    return name === 'feature-model' ? featureModelGraph : esgFxGraph;
+}
+
 document.querySelectorAll('[data-fit]').forEach((button) => {
     button.addEventListener('click', () => {
-        const graph = button.dataset.fit === 'feature-model' ? featureModelGraph : esgFxGraph;
+        const graph = graphNamed(button.dataset.fit);
         if (graph) {
             fitGraph(graph);
         }
+    });
+});
+
+// One press is a noticeable step without overshooting; Cytoscape clamps the
+// result to the graph's own zoom limits, so the ends need no handling here.
+const ZOOM_STEP = 1.3;
+
+document.querySelectorAll('[data-zoom]').forEach((button) => {
+    button.addEventListener('click', () => {
+        const graph = graphNamed(button.dataset.zoom);
+        if (!graph) {
+            return;
+        }
+        const step = button.dataset.zoomDirection === 'in' ? ZOOM_STEP : 1 / ZOOM_STEP;
+        // Anchored on the middle of the viewport rather than the graph's own
+        // centre, so whatever is being looked at stays where it is.
+        graph.zoom({
+            level: graph.zoom() * step,
+            renderedPosition: {x: graph.width() / 2, y: graph.height() / 2}
+        });
     });
 });
 
@@ -1351,9 +1375,12 @@ function renderFeatureEditorRows() {
             under.textContent = 'under';
             row.appendChild(under);
 
-            row.appendChild(editorSelect(
+            const parentSelect = editorSelect(
                 names.filter((name) => name !== feature.name).map((name) => ({value: name, label: name})),
-                feature.parent, (value) => { feature.parent = value; scheduleEditorChange(); }));
+                feature.parent, (value) => { feature.parent = value; scheduleEditorChange(); },
+                'max-w-[10rem]');
+            parentSelect.title = feature.parent;
+            row.appendChild(parentSelect);
 
             // Mandatory versus optional is only a choice inside an and-group; in an
             // or-group or an alternative-group the group itself decides.
@@ -1376,22 +1403,16 @@ function renderFeatureEditorRows() {
 
         // Offered on every feature, so a group can be declared before its members
         // exist; it only takes effect once the feature has children.
-        const childCount = (children[feature.name] || []).length;
         const forms = document.createElement('span');
         forms.className = 'text-xs text-slate-400';
-        forms.textContent = 'children form';
-        row.append(forms, editorSelect([
+        forms.textContent = 'children';
+        const childGroup = editorSelect([
             {value: 'and', label: 'and-group'},
             {value: 'or', label: 'or-group'},
             {value: 'alt', label: 'alternative-group'}
-        ], groupTagOf(feature), (value) => { feature.childGroup = value; scheduleEditorChange(); }));
-
-        if (!childCount) {
-            const noChildren = document.createElement('span');
-            noChildren.className = 'text-xs text-slate-300';
-            noChildren.textContent = '(no children yet)';
-            row.appendChild(noChildren);
-        }
+        ], groupTagOf(feature), (value) => { feature.childGroup = value; scheduleEditorChange(); });
+        childGroup.title = 'What this feature\'s own children make up';
+        row.append(forms, childGroup);
 
         const abstractLabel = document.createElement('label');
         abstractLabel.className = 'inline-flex items-center gap-1 text-xs text-slate-600';

@@ -98,7 +98,7 @@
             </div>
         </div>
 
-        <div class="px-4 py-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="px-4 py-4 grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] gap-6">
             <div>
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="text-sm font-medium">Features</h3>
@@ -109,7 +109,7 @@
                 </div>
                 <div id="feature-rows" class="space-y-2"></div>
                 <p class="text-xs text-slate-500 mt-2">
-                    The first feature is the root. <em>Children form</em> sets what a
+                    The first feature is the root. <em>Children</em> sets what a
                     feature's own children make up &mdash; an and-group, where each child
                     is mandatory or optional, or an or-group or alternative-group.
                 </p>
@@ -173,13 +173,31 @@
                             class="hidden text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50">
                         Delete selected
                     </button>
-                    <button type="button" data-fit="feature-model" title="Fit to view"
-                            class="p-1.5 rounded border border-slate-300 hover:bg-slate-50">
-                        <svg viewBox="0 0 16 16" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M6 1.5H1.5V6M10 1.5h4.5V6M6 14.5H1.5V10M10 14.5h4.5V10"/>
-                        </svg>
-                    </button>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" data-fit="feature-model" title="Fit to view"
+                                class="p-1.5 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50">
+                            <svg viewBox="0 0 16 16" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M6 1.5H1.5V6M10 1.5h4.5V6M6 14.5H1.5V10M10 14.5h4.5V10"/>
+                            </svg>
+                        </button>
+                        <div class="flex items-stretch rounded-md border border-slate-300 divide-x divide-slate-300">
+                            <button type="button" data-zoom="feature-model" data-zoom-direction="out" title="Zoom out"
+                                    class="px-2 py-1.5 rounded-l-md text-slate-600 hover:bg-slate-50">
+                                <svg viewBox="0 0 16 16" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                     stroke-width="1.8" stroke-linecap="round">
+                                    <path d="M3.5 8h9"/>
+                                </svg>
+                            </button>
+                            <button type="button" data-zoom="feature-model" data-zoom-direction="in" title="Zoom in"
+                                    class="px-2 py-1.5 rounded-r-md text-slate-600 hover:bg-slate-50">
+                                <svg viewBox="0 0 16 16" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                     stroke-width="1.8" stroke-linecap="round">
+                                    <path d="M8 3.5v9M3.5 8h9"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div id="feature-model" class="h-[620px]"></div>
@@ -298,13 +316,31 @@
                 <button id="clear-highlight" type="button" disabled
                         class="text-xs px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50
                                disabled:opacity-40 disabled:cursor-not-allowed">Clear highlight</button>
-                <button type="button" data-fit="esg-fx" title="Fit to view"
-                        class="p-1.5 rounded border border-slate-300 hover:bg-slate-50">
-                    <svg viewBox="0 0 16 16" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
-                         stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6 1.5H1.5V6M10 1.5h4.5V6M6 14.5H1.5V10M10 14.5h4.5V10"/>
-                    </svg>
-                </button>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" data-fit="esg-fx" title="Fit to view"
+                            class="p-1.5 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50">
+                        <svg viewBox="0 0 16 16" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                             stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 1.5H1.5V6M10 1.5h4.5V6M6 14.5H1.5V10M10 14.5h4.5V10"/>
+                        </svg>
+                    </button>
+                    <div class="flex items-stretch rounded-md border border-slate-300 divide-x divide-slate-300">
+                        <button type="button" data-zoom="esg-fx" data-zoom-direction="out" title="Zoom out"
+                                class="px-2 py-1.5 rounded-l-md text-slate-600 hover:bg-slate-50">
+                            <svg viewBox="0 0 16 16" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                 stroke-width="1.8" stroke-linecap="round">
+                                <path d="M3.5 8h9"/>
+                            </svg>
+                        </button>
+                        <button type="button" data-zoom="esg-fx" data-zoom-direction="in" title="Zoom in"
+                                class="px-2 py-1.5 rounded-r-md text-slate-600 hover:bg-slate-50">
+                            <svg viewBox="0 0 16 16" class="w-3.5 h-3.5" fill="none" stroke="currentColor"
+                                 stroke-width="1.8" stroke-linecap="round">
+                                <path d="M8 3.5v9M3.5 8h9"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
         <div id="esg-fx" class="h-[620px]"></div>
