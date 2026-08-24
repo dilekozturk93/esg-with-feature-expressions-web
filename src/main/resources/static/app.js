@@ -334,23 +334,27 @@ function createProductBlock() {
         if (forced.has(featureName)) {
             input.checked = true;
             input.disabled = true;
-            label.title = 'Mandatory in the feature model';
         }
 
         const text = document.createElement('span');
         const display = displayNameFor(featureName);
         text.textContent = display;
+
+        // The engine name is what the API speaks, but printing it beside every
+        // readable name is noise; hovering is enough to recover it.
+        const notes = [];
         if (display !== featureName) {
-            const engineName = document.createElement('span');
-            engineName.className = 'text-slate-400 ml-1';
-            engineName.textContent = '(' + featureName + ')';
-            text.appendChild(engineName);
+            notes.push('engine name: ' + featureName);
         }
         if (input.disabled) {
+            notes.push('mandatory in the feature model');
             const required = document.createElement('span');
             required.className = 'text-slate-400 ml-1';
             required.textContent = '— required';
             text.appendChild(required);
+        }
+        if (notes.length) {
+            label.title = notes.join(' · ');
         }
 
         label.append(input, text);

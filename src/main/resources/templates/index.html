@@ -76,15 +76,6 @@
         </div>
     </header>
 
-    <!-- The size of each model is stated on its own panel, where it is being
-         read; only the number that belongs to neither stays up here. -->
-    <section class="mt-5">
-        <div class="inline-block bg-white rounded-lg border border-slate-200 px-4 py-3 text-sm">
-            <div class="text-slate-500">Valid configurations</div>
-            <div id="stat-configs" class="text-xl font-semibold mt-0.5">&mdash;</div>
-        </div>
-    </section>
-
     <div id="error-banner"
          class="hidden mt-5 rounded-lg border border-red-300 bg-red-50 text-red-800 px-4 py-3 text-sm"></div>
 
@@ -166,7 +157,7 @@
     </section>
 
     <!-- Feature model gets the width; the configuration it drives sits beside it. -->
-    <div class="mt-5 grid grid-cols-1 xl:grid-cols-[minmax(0,7fr)_minmax(0,4fr)] gap-5">
+    <div class="mt-6 grid grid-cols-1 xl:grid-cols-[minmax(0,7fr)_minmax(0,4fr)] gap-5">
 
         <section class="bg-white rounded-lg border border-slate-200 flex flex-col">
             <div class="px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
@@ -203,8 +194,10 @@
         </section>
 
         <section class="bg-white rounded-lg border border-slate-200 flex flex-col">
-            <div class="px-4 py-3 border-b border-slate-200">
+            <div class="px-4 py-3 border-b border-slate-200 flex items-baseline gap-3 flex-wrap">
                 <h2 class="font-medium">Product configuration</h2>
+                <span class="text-xs text-slate-500">
+                    <span id="stat-configs">&mdash;</span> valid configurations</span>
             </div>
 
             <div class="px-4 py-4 space-y-4">

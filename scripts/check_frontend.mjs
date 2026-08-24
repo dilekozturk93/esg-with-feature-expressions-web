@@ -29,10 +29,28 @@ const anything = () => new Proxy(function () {}, {
   apply() { return anything(); }
 });
 
+const pageHtml = readFileSync('src/main/resources/templates/index.html', 'utf8');
+const pageIds = new Set([...pageHtml.matchAll(/id="([^"]+)"/g)].map((m) => m[1]));
+
 const seenIds = new Set();
+const missingIds = new Set();
+
+// A browser hands back null for an element that is not there, and the next
+// property access throws. Returning a stand-in for everything would hide
+// exactly the mistake this is looking for, so ids are checked against the page.
 const document = {
-  getElementById: (id) => { seenIds.add(id); return anything(); },
-  querySelectorAll: () => [],
+  getElementById(id) {
+    seenIds.add(id);
+    if (!pageIds.has(id)) {
+      missingIds.add(id);
+      return null;
+    }
+    return anything();
+  },
+  querySelectorAll: (selector) => {
+    const count = (pageHtml.match(new RegExp(selector.replace(/^\./, 'class="'), 'g')) || []).length;
+    return Array.from({length: Math.max(count, 1)}, () => anything());
+  },
   querySelector: () => anything(),
   createElement: () => anything(),
   addEventListener: () => {},
@@ -64,9 +82,5 @@ try {
   process.exit(1);
 }
 
-// every id the script reaches for must exist in the page
-const html = readFileSync('src/main/resources/templates/index.html', 'utf8');
-const present = new Set([...html.matchAll(/id="([^"]+)"/g)].map((m) => m[1]));
-const missing = [...seenIds].filter((id) => !present.has(id));
-console.log('elements missing from the page:', missing.length ? missing : 'none');
-process.exit(missing.length ? 1 : 0);
+console.log('elements missing from the page:', missingIds.size ? [...missingIds] : 'none');
+process.exit(missingIds.size ? 1 : 0);
