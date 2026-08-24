@@ -1,8 +1,11 @@
 package tr.edu.iyte.esgfx.web.service;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -58,6 +61,14 @@ public class EsgFxModelLoader {
     public LoadedSplModel loadFromContent(String featureModelXml, String esgFxXml) {
         requireWithinLimit(featureModelXml, "Feature model");
         requireWithinLimit(esgFxXml, "ESG-Fx");
+        // The engine's own XML parsers resolve external entities, so an upload
+        // that declares a DOCTYPE could read a file off the server or reach out
+        // over the network (an XXE attack). Neither a FeatureIDE model nor an
+        // mxGraph export carries a DOCTYPE, so the safe and simple boundary is
+        // to refuse any upload that does — checked here, before the content is
+        // ever handed to the engine.
+        rejectExternalEntities(featureModelXml, "Feature model");
+        rejectExternalEntities(esgFxXml, "ESG-Fx");
         try {
             return stageAndLoad(featureModelXml, esgFxXml);
         } catch (InvalidModelException | IllegalStateException e) {
@@ -162,6 +173,43 @@ public class EsgFxModelLoader {
         if (content.getBytes(StandardCharsets.UTF_8).length > MAX_MODEL_BYTES) {
             throw new InvalidModelException(what + " file is larger than the "
                     + (MAX_MODEL_BYTES / 1024) + " KB limit.");
+        }
+    }
+
+    /**
+     * Parses the content once with a parser that forbids a document type
+     * declaration outright, purely as a gate. A well-formed model passes and is
+     * handed on unchanged; anything that declares a DOCTYPE — the vehicle for an
+     * XXE attack — is rejected here rather than reaching the engine's parser,
+     * which is not itself hardened. Other parse errors are left alone, so the
+     * engine still produces its own, more specific message for a merely
+     * malformed file.
+     */
+    private static void rejectExternalEntities(String xml, String what) {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        try {
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            factory.setXIncludeAware(false);
+            factory.setExpandEntityReferences(false);
+            factory.newDocumentBuilder().parse(
+                    new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+        } catch (org.xml.sax.SAXParseException e) {
+            // The hardened parser throws exactly this when a DOCTYPE is present.
+            String message = String.valueOf(e.getMessage());
+            if (message.contains("DOCTYPE") || message.contains("DTD")) {
+                throw new InvalidModelException(what + " must not declare a document type "
+                        + "(<!DOCTYPE ...>). It is not needed for a feature model or an ESG-Fx, "
+                        + "and it is a common vehicle for reading files off the server.");
+            }
+            // A different well-formedness error: let the engine report it.
+        } catch (InvalidModelException e) {
+            throw e;
+        } catch (Exception e) {
+            // A parser misconfiguration must not weaken the gate: if the check
+            // itself could not run, treat the upload as unsafe.
+            throw new InvalidModelException("Could not validate " + what
+                    + " before loading it. " + rootMessage(e));
         }
     }
 
