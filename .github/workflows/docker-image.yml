@@ -13,6 +13,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Fast and needs no Docker: catches a front-end script that cannot finish
+  # loading, which would silently disable every listener below the failure.
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --check src/main/resources/static/app.js
+      - run: node scripts/check_frontend.mjs
+
   build-and-smoke-test:
     runs-on: ubuntu-latest
 

@@ -143,6 +143,10 @@ let latestResult = null;
 let allProducts = null;
 let lastGenerationMode = 'single';
 let validationTimer = null;
+let drawMode = false;
+
+const DRAW_HINT_IDS = ['feature-model-hint', 'esg-fx-hint'];
+const DELETE_BUTTON_IDS = ['delete-feature-selection', 'delete-esg-selection'];
 
 const tooltip = document.getElementById('tooltip');
 const errorBanner = document.getElementById('error-banner');
@@ -1724,10 +1728,6 @@ document.querySelectorAll('.source-tab').forEach((tab) => {
     tab.addEventListener('click', () => selectSource(tab.dataset.source));
 });
 
-// The tabs read draw, upload, examples, but a first visit is most useful
-// looking at a model, so an example is what loads.
-selectSource('example');
-
 const modelInfo = document.getElementById('model-info');
 
 function toggleModelInfo(open) {
@@ -1759,10 +1759,6 @@ document.addEventListener('keydown', (event) => {
 // structure. Both write to the same state, and serialization is untouched.
 // ---------------------------------------------------------------------------
 
-const DRAW_HINT_IDS = ['feature-model-hint', 'esg-fx-hint'];
-const DELETE_BUTTON_IDS = ['delete-feature-selection', 'delete-esg-selection'];
-
-let drawMode = false;
 
 function editorFeatureElements() {
     const byName = featuresByName();
@@ -2143,3 +2139,11 @@ document.addEventListener('keydown', (event) => {
     deleteEsgSelection();
     deleteFeatureSelection();
 });
+
+// Everything above is declarations; this is the only thing that runs on load.
+// It sits last so it cannot reach a `let` or `const` further down the file,
+// which would throw and take every listener after it with it.
+//
+// The tabs read draw, upload, examples, but a first visit is most useful
+// looking at a model, so an example is what loads.
+selectSource('example');
