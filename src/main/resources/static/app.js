@@ -983,28 +983,50 @@ document.getElementById('example-select').addEventListener('change', (event) => 
     loadExample(event.target.value);
 });
 
-const featureModelFile = document.getElementById('feature-model-file');
-const esgFxFile = document.getElementById('esgfx-file');
-const loadUploadButton = document.getElementById('load-upload');
+// Importing an existing model into the editor. There is no separate upload
+// mode: a model comes in through the editor, so it can be edited or extended
+// exactly like one drawn from scratch, and re-serialized on apply and download.
+const importFeatureModelFile = document.getElementById('import-fm-file');
+const importEsgFxFile = document.getElementById('import-esg-file');
+const importButton = document.getElementById('import-model');
 
-function updateLoadUploadButton() {
-    loadUploadButton.disabled = !(featureModelFile.files[0] && esgFxFile.files[0]);
+function updateImportButton() {
+    importButton.disabled = !(importFeatureModelFile.files[0] && importEsgFxFile.files[0]);
 }
 
-[featureModelFile, esgFxFile].forEach((input) => {
-    input.addEventListener('change', updateLoadUploadButton);
+[importFeatureModelFile, importEsgFxFile].forEach((input) => {
+    input.addEventListener('change', updateImportButton);
 });
 
-loadUploadButton.addEventListener('click', async () => {
-    loadUploadButton.disabled = true;
+importButton.addEventListener('click', async () => {
+    importButton.disabled = true;
+    clearError();
     try {
         const [featureModelXml, esgFxXml] = await Promise.all([
-            featureModelFile.files[0].text(),
-            esgFxFile.files[0].text()
+            importFeatureModelFile.files[0].text(),
+            importEsgFxFile.files[0].text()
         ]);
-        await loadUploadedModel(featureModelXml, esgFxXml);
+        // The backend both validates the pair (including the DOCTYPE guard) and
+        // returns it parsed; the raw feature-model XML is passed on so the
+        // editor can recover the cross-tree constraints, which the parsed graph
+        // does not carry.
+        const response = await fetch('/api/model', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({featureModelXml: featureModelXml, esgFxXml: esgFxXml})
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.error || ('Request failed with status ' + response.status));
+        }
+        editorState = editorStateFromPayload(
+            Object.assign({}, payload, {featureModelXml: featureModelXml}));
+        refreshEditor();
+        await applyEditorModel();
+    } catch (error) {
+        showError('Could not import the model: ' + error.message);
     } finally {
-        updateLoadUploadButton();
+        updateImportButton();
     }
 });
 
@@ -1842,7 +1864,6 @@ function selectSource(source) {
     });
 
     document.getElementById('example-picker').classList.toggle('hidden', source !== 'example');
-    document.getElementById('upload-picker').classList.toggle('hidden', source !== 'upload');
     document.getElementById('editor').classList.toggle('hidden', source !== 'draw');
 
     setDrawMode(source === 'draw');
@@ -2282,6 +2303,6 @@ document.addEventListener('keydown', (event) => {
 // It sits last so it cannot reach a `let` or `const` further down the file,
 // which would throw and take every listener after it with it.
 //
-// The tabs read draw, upload, examples, but a first visit is most useful
-// looking at a model, so an example is what loads.
+// The tabs read draw, then case studies. A first visit is most useful looking
+// at a worked model, so a case study is what loads.
 selectSource('example');

@@ -35,18 +35,15 @@
                 <button type="button" data-source="draw"
                         class="source-tab -mb-px border-b-2 border-transparent pb-2 text-slate-500
                                hover:text-slate-800">Draw</button>
-                <button type="button" data-source="upload"
-                        class="source-tab -mb-px border-b-2 border-transparent pb-2 text-slate-500
-                               hover:text-slate-800">Upload</button>
                 <button type="button" data-source="example"
                         class="source-tab -mb-px border-b-2 border-transparent pb-2 text-slate-500
-                               hover:text-slate-800">Bundled examples</button>
+                               hover:text-slate-800">Case studies</button>
             </div>
         </nav>
 
         <div class="mt-3">
             <label id="example-picker" class="text-sm inline-flex items-center gap-2">
-                <span class="text-slate-600">Example</span>
+                <span class="text-slate-600">Case study</span>
                 <select id="example-select"
                         class="border border-slate-300 rounded-md px-3 py-1.5 bg-white text-sm min-w-[14rem]">
                     <option value="svm">Soda Vending Machine (SVM)</option>
@@ -55,25 +52,6 @@
                 </select>
             </label>
 
-            <div id="upload-picker" class="hidden flex flex-wrap items-end gap-3 text-sm">
-                <label>
-                    <span class="block text-slate-600 mb-1">Feature model (.xml)</span>
-                    <input id="feature-model-file" type="file" accept=".xml,text/xml"
-                           class="text-xs file:mr-2 file:rounded file:border file:border-slate-300
-                                  file:bg-white file:px-2 file:py-1 file:text-xs"/>
-                </label>
-                <label>
-                    <span class="block text-slate-600 mb-1">ESG-Fx (.mxe)</span>
-                    <input id="esgfx-file" type="file" accept=".mxe,.xml,text/xml"
-                           class="text-xs file:mr-2 file:rounded file:border file:border-slate-300
-                                  file:bg-white file:px-2 file:py-1 file:text-xs"/>
-                </label>
-                <button id="load-upload" type="button" disabled
-                        class="rounded-md bg-slate-900 text-white text-sm px-3 py-2 hover:bg-slate-800
-                               disabled:bg-slate-300 disabled:cursor-not-allowed">
-                    Load model
-                </button>
-            </div>
         </div>
     </header>
 
@@ -109,6 +87,27 @@
                     Apply model
                 </button>
             </div>
+        </div>
+
+        <div class="px-4 py-3 border-b border-slate-200 flex flex-wrap items-end gap-3 text-sm">
+            <span class="text-slate-600 mr-1">Draw from scratch below, or import a model to edit:</span>
+            <label>
+                <span class="block text-slate-500 text-xs mb-1">Feature model (.xml)</span>
+                <input id="import-fm-file" type="file" accept=".xml,text/xml"
+                       class="text-xs file:mr-2 file:rounded file:border file:border-slate-300
+                              file:bg-white file:px-2 file:py-1 file:text-xs"/>
+            </label>
+            <label>
+                <span class="block text-slate-500 text-xs mb-1">ESG-Fx (.mxe)</span>
+                <input id="import-esg-file" type="file" accept=".mxe,.xml,text/xml"
+                       class="text-xs file:mr-2 file:rounded file:border file:border-slate-300
+                              file:bg-white file:px-2 file:py-1 file:text-xs"/>
+            </label>
+            <button id="import-model" type="button" disabled
+                    class="rounded-md border border-slate-300 text-sm px-3 py-1.5 hover:bg-slate-50
+                           disabled:opacity-40 disabled:cursor-not-allowed">
+                Import into editor
+            </button>
         </div>
 
         <div class="px-4 py-4 grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,3fr)] gap-6">

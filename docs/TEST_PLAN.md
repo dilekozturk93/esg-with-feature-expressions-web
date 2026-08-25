@@ -44,29 +44,30 @@ stands in for the current build.
 
 | Section | Cases | Passed |
 |---------|:-----:|:------:|
-| A. Bundled examples and rendering | 6 | |
+| A. Case studies and rendering | 6 | |
 | B. Graph controls | 5 | |
 | C. Single-product generation | 4 | |
 | D. Coverage criteria | 4 | |
 | E. Multi-product, all-products, sampled | 6 | |
 | F. Results and export | 4 | |
-| G. Draw / model editor | 8 | |
-| H. Upload | 3 | |
+| G. Draw / model editor | 9 | |
+| H. Import (inside Draw) | 3 | |
 | I. Validation and safety | 5 | |
-| **Total** | **45** | |
+| **Total** | **46** | |
 
 Legend: tick the box when a case passes. If it fails, leave it unticked and write
 what happened on the **Notes** line.
 
 ---
 
-## A. Bundled examples and rendering
+## A. Case studies and rendering
 
 - [ ] **A1 — Tab order.** Above the model area the tabs read, left to right:
-  **Draw**, **Upload**, **Bundled examples**. The active tab is underlined.
+  **Draw**, **Case studies**. The active tab is underlined. There is no separate
+  Upload tab — importing a model happens inside **Draw**.
   <br>Notes:
 
-- [ ] **A2 — SVM loads and renders.** Open **Bundled examples**, pick **SVM**.
+- [ ] **A2 — SVM loads and renders.** Open **Case studies**, pick **SVM**.
   The feature-model tree and the ESG-Fx graph both draw. The counts read
   **15 vertices, 21 edges, 12 configurations** (features counted separately).
   <br>Notes:
@@ -80,7 +81,7 @@ what happened on the **Notes** line.
   <br>Notes:
 
 - [ ] **A5 — First selection renders immediately.** Reload the page, open
-  **Bundled examples**; the first example shown draws on its own, without having
+  **Case studies**; the first example shown draws on its own, without having
   to switch to another example and back.
   <br>Notes:
 
@@ -240,19 +241,29 @@ Load **SVM**, feature **s**, single product. Run once per criterion.
   A selected node/edge can be deleted with **Delete selected**.
   <br>Notes:
 
-## H. Upload
-
-- [ ] **H1 — Upload a valid pair.** Open **Upload**. Provide a feature-model XML
-  and an ESG-Fx `.mxe`. Click load. The model renders like a bundled example.
-  (You can export the bundled files first to get a valid pair.)
+- [ ] **G9 — Download the drawn model.** With a model in the editor, use the
+  **Download…** menu. **FM.xml** and **ESG-Fx.xml** each download the drawn
+  model as XML; **PNG**, **JPG** and **PDF** each download an image of the
+  chosen graph. Re-importing the downloaded FM.xml + ESG-Fx.xml reproduces the
+  same model.
   <br>Notes:
 
-- [ ] **H2 — Generate from an upload.** After H1, generate a suite; it behaves the
-  same as with a bundled example.
+## H. Import (inside Draw)
+
+- [ ] **H1 — Import a valid pair.** Open **Draw**. In the import row provide a
+  feature-model XML and an ESG-Fx `.mxe`, then click **Import into editor**. The
+  model renders and its features, events, edges and constraints fill the editor
+  rows. (Draw a model and download its FM.xml + ESG-Fx.xml first to get a valid
+  pair.)
   <br>Notes:
 
-- [ ] **H3 — Load button gating.** The load button stays disabled until both files
-  are chosen.
+- [ ] **H2 — Edit an imported model.** After H1, change something (rename a
+  feature, add an event), click **Apply model**, and generate — the imported
+  model was fully editable, not read-only.
+  <br>Notes:
+
+- [ ] **H3 — Import button gating.** The import button stays disabled until both
+  files are chosen.
   <br>Notes:
 
 ## I. Validation and safety
@@ -262,23 +273,23 @@ Load **SVM**, feature **s**, single product. Run once per criterion.
   they are mandatory in the feature model.
   <br>Notes:
 
-- [ ] **I2 — Unused feature is refused.** Upload or draw a model with a concrete
+- [ ] **I2 — Unused feature is refused.** Import or draw a model with a concrete
   feature that labels no event. Loading it returns a clear message naming that
   feature, not a server error.
   <br>Notes:
 
-- [ ] **I3 — Malformed upload.** Upload a file that is not a valid model. The tool
+- [ ] **I3 — Malformed import.** Import a file that is not a valid model. The tool
   reports that it could not read it, and stays usable.
   <br>Notes:
 
-- [ ] **I4 — DOCTYPE is rejected (security).** Upload a feature model whose text
+- [ ] **I4 — DOCTYPE is rejected (security).** Import a feature model whose text
   begins with a document type declaration, for example:
   <br>`<!DOCTYPE featureModel [ <!ENTITY x SYSTEM "file:///etc/hostname"> ]>`
   <br>before the `<featureModel>` element. Loading is refused with a message that
   a document type is not allowed — the file is never read.
   <br>Notes:
 
-- [ ] **I5 — Oversized upload.** A file well over ~1 MB is refused with a size
+- [ ] **I5 — Oversized import.** A file well over ~1 MB is refused with a size
   message rather than being processed.
   <br>Notes:
 
