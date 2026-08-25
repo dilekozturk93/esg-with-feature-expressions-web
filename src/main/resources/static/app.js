@@ -133,6 +133,20 @@ function coverageNameFor(coverageLength) {
     return COVERAGE_NAMES[coverageLength] || 'Coverage';
 }
 
+// What each level actually covers, as a plain noun for the CSV. The engine
+// reports this as "event" or "edge"; that is its internal vocabulary, not
+// something an end user should have to read.
+const COVERAGE_TYPE_NOUNS = {
+    1: 'events',
+    2: 'event couples',
+    3: 'event triples',
+    4: 'event quadruples'
+};
+
+function coverageTypeNoun(coverageLength) {
+    return COVERAGE_TYPE_NOUNS[coverageLength] || 'events';
+}
+
 let featureModelGraph = null;
 let esgFxGraph = null;
 let currentSpl = null;
@@ -251,7 +265,7 @@ function renderEsgFx(esgFx) {
             showTooltip(data.isPseudoStart ? 'pseudo start vertex' : 'pseudo end vertex', event);
             return;
         }
-        const expression = data.featureExpression || 'no feature expression';
+        const expression = expandExpression(data.featureExpression) || 'no feature expression';
         showTooltip(data.label + ' — ' + expression, event);
     });
     esgFxGraph.on('mouseout', 'node', hideTooltip);
@@ -259,6 +273,17 @@ function renderEsgFx(esgFx) {
 
 function displayNameFor(featureName) {
     return currentFeatureLabels[featureName] || featureName;
+}
+
+// A feature expression is written over feature short codes ("!f"); this
+// rewrites each code to its display label ("!free") while leaving the
+// operators untouched, so what shows matches the names in the feature tree.
+function expandExpression(expression) {
+    if (!expression) {
+        return expression;
+    }
+    return expression.replace(/[A-Za-z_][A-Za-z0-9_]*/g,
+        (code) => currentFeatureLabels[code] || code);
 }
 
 // A feature is forced on when it is mandatory and everything above it is
@@ -628,6 +653,15 @@ function stripVertexSuffix(token) {
     return token.replace(/_\d+$/, '');
 }
 
+// A sequence token can be a single event ("soda_2") or, at L>=3, a tuple of
+// them ("soda_2:serveSoda_3"). The trailing _<id> disambiguates repeated
+// event names for the engine; it means nothing to a reader, so it is dropped
+// from every part before the sequence is shown or exported. The raw tokens are
+// kept for highlighting, which still needs the ids to find the vertices.
+function readableSequence(sequence) {
+    return sequence.map((token) => token.split(':').map(stripVertexSuffix).join(':'));
+}
+
 // L=1 and L=2 sequences carry one event per step. L=3 and L=4 carry overlapping
 // tuples — consecutive tuples share all but one element — so the walk is the
 // first tuple followed by the last element of every tuple after it.
@@ -801,7 +835,7 @@ function renderResults(result) {
 
         const events = document.createElement('td');
         events.className = 'px-4 py-2 font-mono text-xs';
-        events.textContent = sequence.join(' → ');
+        events.textContent = readableSequence(sequence).join(' → ');
 
         row.append(number, length, events);
         body.appendChild(row);
@@ -897,11 +931,11 @@ function downloadCsv() {
                 product.productId,
                 enabled.join(' '),
                 product.coverageLength,
-                product.coverageType,
+                coverageTypeNoun(product.coverageLength),
                 product.coveragePercentage,
                 index + 1,
                 sequence.length,
-                sequence.join(' -> ')
+                readableSequence(sequence).join(' -> ')
             ]);
         });
     });
@@ -1042,8 +1076,8 @@ function minimalModel() {
     const eventId = newEventId();
     return {
         features: [
-            {name: 'Root', parent: '', mandatory: true, abstract: true, childGroup: 'and'},
-            {name: 'A', parent: 'Root', mandatory: true, abstract: false, childGroup: 'and'}
+            {name: 'NameOfSPL', parent: '', mandatory: true, abstract: true, childGroup: 'and'},
+            {name: 'A', parent: 'NameOfSPL', mandatory: true, abstract: false, childGroup: 'and'}
         ],
         events: [{id: eventId, name: 'e1', expression: 'A'}],
         edges: [{source: PSEUDO_START, target: eventId}, {source: eventId, target: PSEUDO_END}],
@@ -1701,6 +1735,85 @@ document.getElementById('sample-size').addEventListener('input', (event) => {
     event.target.dataset.userSet = 'true';
 });
 
+// ---- Downloading the drawn model -----------------------------------------
+
+function triggerDownload(filename, blob) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
+function dataUrlToBlob(dataUrl) {
+    const [meta, base64] = dataUrl.split(',');
+    const mime = meta.match(/:(.*?);/)[1];
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], {type: mime});
+}
+
+function graphFor(which) {
+    return which === 'fm' ? featureModelGraph : esgFxGraph;
+}
+
+// A white background and a 2x scale so the raster reads cleanly: JPG has no
+// transparency, and PDF and slides both look better than a screen-resolution
+// grab.
+function graphImageDataUrl(graph, format) {
+    const options = {full: true, scale: 2, bg: '#ffffff'};
+    return format === 'jpg' ? graph.jpg(options) : graph.png(options);
+}
+
+function saveGraphImage(which, format) {
+    const graph = graphFor(which);
+    if (!graph) {
+        return;
+    }
+    const name = which === 'fm' ? 'FeatureModel' : 'ESG-Fx';
+    if (format === 'pdf') {
+        const png = graphImageDataUrl(graph, 'png');
+        const image = new Image();
+        image.onload = () => {
+            const jsPdf = window.jspdf && window.jspdf.jsPDF;
+            if (!jsPdf) {
+                return;
+            }
+            const orientation = image.width >= image.height ? 'landscape' : 'portrait';
+            const pdf = new jsPdf({orientation, unit: 'pt', format: [image.width, image.height]});
+            pdf.addImage(png, 'PNG', 0, 0, image.width, image.height);
+            pdf.save(name + '.pdf');
+        };
+        image.src = png;
+        return;
+    }
+    triggerDownload(name + '.' + format, dataUrlToBlob(graphImageDataUrl(graph, format)));
+}
+
+document.getElementById('editor-download').addEventListener('change', (event) => {
+    const choice = event.target.value;
+    event.target.value = '';
+    if (!choice) {
+        return;
+    }
+    if (choice === 'fm-xml') {
+        triggerDownload('FM.xml', new Blob([serializeFeatureModel()],
+            {type: 'application/xml;charset=utf-8'}));
+        return;
+    }
+    if (choice === 'esg-xml') {
+        triggerDownload('ESG-Fx.xml', new Blob([serializeEsgFx()],
+            {type: 'application/xml;charset=utf-8'}));
+        return;
+    }
+    const [which, format] = choice.split('-');
+    saveGraphImage(which, format);
+});
+
 document.getElementById('apply-model').addEventListener('click', applyEditorModel);
 
 document.getElementById('editor-preset').addEventListener('change', async (event) => {
@@ -2132,7 +2245,7 @@ function renderEditorGraphs() {
             showTooltip(data.isPseudoStart ? 'pseudo start vertex' : 'pseudo end vertex', event);
             return;
         }
-        showTooltip(data.label + ' — ' + (data.featureExpression || 'no feature expression'), event);
+        showTooltip(data.label + ' — ' + (expandExpression(data.featureExpression) || 'no feature expression'), event);
     });
     esgFxGraph.on('mouseout', 'node', hideTooltip);
 

@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
     <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
     <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+    <script src="https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 </head>
 <body class="bg-slate-100 text-slate-800">
 
@@ -90,6 +91,18 @@
                     <option value="svm">Soda Vending Machine</option>
                     <option value="em">e-Mail</option>
                     <option value="el">Elevator</option>
+                </select>
+                <select id="editor-download" title="Download the drawn model"
+                        class="border border-slate-300 rounded px-2 py-1 text-xs bg-white">
+                    <option value="">Download&hellip;</option>
+                    <option value="fm-xml">Feature model &mdash; FM.xml</option>
+                    <option value="esg-xml">ESG-Fx &mdash; ESG-Fx.xml</option>
+                    <option value="fm-png">Feature model &mdash; PNG</option>
+                    <option value="fm-jpg">Feature model &mdash; JPG</option>
+                    <option value="fm-pdf">Feature model &mdash; PDF</option>
+                    <option value="esg-png">ESG-Fx &mdash; PNG</option>
+                    <option value="esg-jpg">ESG-Fx &mdash; JPG</option>
+                    <option value="esg-pdf">ESG-Fx &mdash; PDF</option>
                 </select>
                 <button id="apply-model" type="button"
                         class="text-xs px-3 py-1.5 rounded bg-slate-900 text-white hover:bg-slate-800">
