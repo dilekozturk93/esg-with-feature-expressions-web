@@ -1692,6 +1692,19 @@ async function applyEditorModel() {
 
 /** Rebuilds editor state from a loaded model, so a bundled example can be edited. */
 function editorStateFromPayload(payload) {
+    // The bundled SVM and e-Mail feature models name features with short codes
+    // (s, t, f); the readable labels (soda, tea, free) are what the rest of the
+    // tool shows. When such a model is opened for editing, carry those readable
+    // names into the model itself, so the editor is not left showing the codes.
+    // Models whose features are already spelled out (Elevator) have no labels
+    // and are untouched.
+    const labels = payload.featureLabels || {};
+    const rename = (name) =>
+        (name && Object.prototype.hasOwnProperty.call(labels, name)) ? labels[name] : name;
+    const renameExpression = (expression) => expression
+        ? expression.replace(/[A-Za-z_][A-Za-z0-9_]*/g, (token) => rename(token))
+        : expression;
+
     const parentOf = {};
     payload.featureModel.edges.forEach((edge) => {
         parentOf[edge.data.target] = edge.data.source;
@@ -1713,8 +1726,8 @@ function editorStateFromPayload(payload) {
     });
 
     const features = payload.featureModel.nodes.map((node) => ({
-        name: node.data.id,
-        parent: parentOf[node.data.id] || '',
+        name: rename(node.data.id),
+        parent: rename(parentOf[node.data.id] || ''),
         mandatory: node.data.type === 'root' || node.data.type === 'mandatory',
         abstract: Boolean(node.data.isAbstract),
         childGroup: childGroupOf[node.data.id] || 'and'
@@ -1732,7 +1745,8 @@ function editorStateFromPayload(payload) {
         } else {
             const id = newEventId();
             idOf[node.data.id] = id;
-            events.push({id: id, name: node.data.label, expression: node.data.featureExpression || ''});
+            events.push({id: id, name: node.data.label,
+                expression: renameExpression(node.data.featureExpression || '')});
         }
     });
 
@@ -1741,11 +1755,25 @@ function editorStateFromPayload(payload) {
         target: idOf[edge.data.target]
     }));
 
+    // Constraints name features too; rename the variables inside each rule and
+    // re-derive its label from the renamed rule so the two stay in step.
+    const constraints = constraintsFromXml(payload.featureModelXml).map((constraint) => {
+        const renamedRule = constraint.rule.replace(
+            /(<var>)([^<]+)(<\/var>)/g, (match, open, name, close) => open + rename(name.trim()) + close);
+        let label = constraint.label;
+        const reparsed = new DOMParser().parseFromString(renamedRule, 'application/xml');
+        const ruleElement = reparsed.getElementsByTagName('rule')[0];
+        if (ruleElement) {
+            label = describeRule(ruleElement);
+        }
+        return {rule: renamedRule, label: label, editable: constraint.editable};
+    });
+
     return {
         features: features,
         events: events,
         edges: edges,
-        constraints: constraintsFromXml(payload.featureModelXml)
+        constraints: constraints
     };
 }
 
