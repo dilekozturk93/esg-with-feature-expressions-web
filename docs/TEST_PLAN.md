@@ -33,12 +33,12 @@ stands in for the current build.
 
 | Field | Value |
 |-------|-------|
-| Date tested | |
-| Tested by | |
+| Date tested | 16/09/2026 |
+| Tested by | dilekozturk93 |
 | Build / commit | |
-| Where | ☐ local jar ☐ Docker image ☐ deployed URL |
+| Where | x local jar ☐ Docker image ☐ deployed URL |
 | Browser | |
-| UniGen available | ☐ yes ☐ no (enumeration only) |
+| UniGen available | x yes ☐ no (enumeration only) |
 
 ## Progress
 
@@ -62,191 +62,191 @@ what happened on the **Notes** line.
 
 ## A. Case studies and rendering
 
-- [ ] **A1 — Tab order.** Above the model area the tabs read, left to right:
+- [x] **A1 — Tab order.** Above the model area the tabs read, left to right:
   **Draw**, **Case studies**. The active tab is underlined. There is no separate
   Upload tab — importing a model happens inside **Draw**.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **A2 — SVM loads and renders.** Open **Case studies**, pick **SVM**.
+- [x] **A2 — SVM loads and renders.** Open **Case studies**, pick **SVM**.
   The feature-model tree and the ESG-Fx graph both draw. The counts read
   **15 vertices, 21 edges, 12 configurations** (features counted separately).
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **A3 — eM loads and renders.** Pick **eM**. Both graphs redraw. Counts read
+- [x] **A3 — eM loads and renders.** Pick **eM**. Both graphs redraw. Counts read
   **19 vertices, 35 edges, 23 configurations**.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **A4 — El (Elevator) loads and renders.** Pick **El**. Both graphs redraw.
+- [x] **A4 — El (Elevator) loads and renders.** Pick **El**. Both graphs redraw.
   Counts read **21 vertices, 80 edges, 42 configurations**.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **A5 — First selection renders immediately.** Reload the page, open
+- [x] **A5 — First selection renders immediately.** Reload the page, open
   **Case studies**; the first example shown draws on its own, without having
   to switch to another example and back.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **A6 — Counts sit with the graph.** The vertex / edge counts are visible in
+- [x] **A6 — Counts sit with the graph.** The vertex / edge counts are visible in
   the graph panel itself, not only in a summary far above it.
-  <br>Notes:
+  <br>Notes: Passed
 
 ## B. Graph controls
 
-- [ ] **B1 — Fit to view.** With a model loaded, click the **fit** button (the
+- [x] **B1 — Fit to view.** With a model loaded, click the **fit** button (the
   corner-frame icon) on the feature-model panel. The whole tree is framed within
   the panel. Repeat on the ESG-Fx panel.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **B2 — Zoom in / out.** Click **+** a few times on a graph: it magnifies and
+- [x] **B2 — Zoom in / out.** Click **+** a few times on a graph: it magnifies and
   what was in the middle stays roughly centred. Click **−**: it shrinks back.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **B3 — Sequence highlight.** Generate a test (see C1), then click a row in
+- [x] **B3 — Sequence highlight.** Generate a test (see C1), then click a row in
   the results table. The matching path lights up on the ESG-Fx graph and a
   highlight status appears.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **B4 — Clear highlight.** With a path highlighted, click **Clear highlight**.
+- [x] **B4 — Clear highlight.** With a path highlighted, click **Clear highlight**.
   The graph returns to normal and the button disables.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **B5 — Model dialog.** Click the **Event Sequence Graphs with Feature
+- [x] **B5 — Model dialog.** Click the **Event Sequence Graphs with Feature
   Expressions** link (the **?** mark). A dialog opens explaining the model, with
   the labelled example and the citation footer. **Close** dismisses it.
-  <br>Notes:
+  <br>Notes: Passed
 
 ## C. Single-product generation
 
-- [ ] **C1 — Reference case (exact).** Load **SVM**. In **Product configuration**
+- [x] **C1 — Reference case (exact).** Load **SVM**. In **Product configuration**
   leave generation on the single-product setting, select **only** the feature
   **s** (Soda). Coverage = **Event coverage**. Click **Generate tests**. Expect
   one sequence, **100% event coverage**:
   <br>`pay → change → soda → serveSoda → open → take → close`
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **C2 — Result summary.** After C1, the summary shows the product, its
+- [x] **C2 — Result summary.** After C1, the summary shows the product, its
   feature selection, the coverage percentage, the sequence count, the total event
   count, and a generation time.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **C3 — Different selection, different suite.** Load SVM, select **t** (Tea)
+- [x] **C3 — Different selection, different suite.** Load SVM, select **t** (Tea)
   instead of **s**. Generate. The suite differs from C1 (serveTea instead of
   serveSoda) and still reaches 100% event coverage.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **C4 — Order independence.** Generate C1, then C3, then C1 again. The third
+- [x] **C4 — Order independence.** Generate C1, then C3, then C1 again. The third
   run reproduces the first run's suite exactly — a selection is not carried over
   from the previous run.
-  <br>Notes:
+  <br>Notes: Passed
 
 ## D. Coverage criteria
 
 Load **SVM**, feature **s**, single product. Run once per criterion.
 
-- [ ] **D1 — Event coverage** (length 1) produces a suite at 100%.
-  <br>Notes:
+- [x] **D1 — Event coverage** (length 1) produces a suite at 100%.
+  <br>Notes: Passed
 
-- [ ] **D2 — Event-couple coverage** (length 2) produces a suite at 100%. It is
+- [x] **D2 — Event-couple coverage** (length 2) produces a suite at 100%. It is
   generally longer / has more sequences than D1.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **D3 — Event-triple coverage** (length 3) produces a suite at 100%.
-  <br>Notes:
+- [x] **D3 — Event-triple coverage** (length 3) produces a suite at 100%.
+  <br>Notes: Passed
 
-- [ ] **D4 — Event-quadruple coverage** (length 4) produces a suite at 100%.
-  <br>Notes:
+- [x] **D4 — Event-quadruple coverage** (length 4) produces a suite at 100%.
+  <br>Notes: Passed
 
 ## E. Multi-product, all-products, sampled
 
-- [ ] **E1 — Add a product.** Load **El**. Click **+ Add product**. A second
+- [x] **E1 — Add a product.** Load **El**. Click **+ Add product**. A second
   product configuration row appears with its own feature selection.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **E2 — Multi-product generation.** With two different product configurations
+- [x] **E2 — Multi-product generation.** With two different product configurations
   set, generate. The results carry both products, each with its own coverage.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **E3 — All products (exact).** Load **El**, switch to **All products**,
+- [x] **E3 — All products (exact).** Load **El**, switch to **All products**,
   coverage **Event-couple**. Generate. Expect **42 products**, every one at
   **100% coverage**.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **E4 — All-products guard.** Switching to **All products** on a model with
+- [x] **E4 — All-products guard.** Switching to **All products** on a model with
   more configurations than the limit disables the option / the generate button
   rather than trying to run it.
-  <br>Notes:
+  <br>Notes: StudentAttendanceSystem SPL is imported. Generating all products option is disabled, but it should be allowed in this case, nu I also tried to import Tesla but it is not even imported in Draw tab. It is imported in Case Studies instead of Elevator (merged with E5, when I tried E5 Tesla was the in place of El), sampled 4 products and generate the test cases, screenshots have been taken.
 
-- [ ] **E5 — Sampled, enumeration (exact).** Load **El**, choose **Sampled**,
+- [x] **E5 — Sampled, enumeration (exact).** Load **El**, choose **Sampled**,
   sampler **Enumeration**, sample size **4**, seed **42**, coverage
   **Event-couple**. Generate. Expect products **7, 9, 34, 39**.
-  <br>Notes:
+  <br>Notes: I refresh the page, and load El. Passed.
 
-- [ ] **E6 — Sampled, UniGen.** Same as E5 but sampler **UniGen** (only if UniGen
+- [x] **E6 — Sampled, UniGen.** Same as E5 but sampler **UniGen** (only if UniGen
   is available — the option is disabled otherwise). It returns up to 4 valid
   products, each at 100% coverage. Selecting UniGen when it is unavailable is not
   possible.
-  <br>Notes:
+  <br>Notes: Failed. Could not generate tests: The UniGen bridge failed: pyunigen is not installed: No module named 'pyunigen'. Tried again after refreshing of the page, failed again. 
 
 ## F. Results and export
 
-- [ ] **F1 — Product navigation.** After a multi-product or all-products run, use
+- [x] **F1 — Product navigation.** After a multi-product or all-products run, use
   the product picker to move between products; the table and highlight follow the
   selected product.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **F2 — CSV download.** Click **Download CSV**. A file downloads and opens in
+- [x] **F2 — CSV download.** Click **Download CSV**. A file downloads and opens in
   a spreadsheet with one row per test step, carrying the product and sequence.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **F3 — Empty state.** Before any generation, the results area shows an empty
+- [x] **F3 — Empty state.** Before any generation, the results area shows an empty
   state rather than a broken table.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **F4 — Feature list on the result.** The result names which features the
+- [x] **F4 — Feature list on the result.** The result names which features the
   product has, matching what was selected.
-  <br>Notes:
+  <br>Notes: Passed
 
 ## G. Draw / model editor
 
-- [ ] **G1 — Start from a preset.** Open **Draw**. In **Start from…** choose
+- [x] **G1 — Start from a preset.** Open **Draw**. In **Start from…** choose
   **Soda Vending Machine**. The editor fills with that model's features, events
   and edges.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **G2 — Minimal model.** Choose **Start from… → Minimal model**. A tiny valid
+- [x] **G2 — Minimal model.** Choose **Start from… → Minimal model**. A tiny valid
   model appears (a root and one child).
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **G3 — Add a feature.** Click **+ Feature**, give it a name, set its parent
+- [x] **G3 — Add a feature.** Click **+ Feature**, give it a name, set its parent
   and group. The row is complete and does not wrap onto a confusing second line.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **G4 — Group kind is set on the parent.** A feature's *children* form
+- [x] **G4 — Group kind is set on the parent.** A feature's *children* form
   (and-group / or-group / alternative-group) is chosen on that feature, and its
   children follow it — there is no way to put a child into a conflicting group.
-  <br>Notes:
+  <br>Notes: Passed. Could be tested more thoroughly if sampled inputs are given in advance, not sure if I put conflicting groups. 
 
-- [ ] **G5 — Add an event and an edge.** Add an event with a feature expression,
+- [x] **G5 — Add an event and an edge.** Add an event with a feature expression,
   then an edge between two events. `[` is the start and `]` is the end.
-  <br>Notes:
+  <br>Notes: Passed
 
-- [ ] **G6 — Add a constraint.** Add a cross-tree constraint; it is accepted.
-  <br>Notes:
+- [x] **G6 — Add a constraint.** Add a cross-tree constraint; it is accepted.
+  <br>Notes: Failed, it doesn't reflect on the product configurations.
 
-- [ ] **G7 — Apply the model.** Click **Apply model**. The drawn model becomes the
+- [x] **G7 — Apply the model.** Click **Apply model**. The drawn model becomes the
   active model: both graphs render and it can be generated from.
-  <br>Notes:
+  <br>Notes: Failed, it doesn't reflect on the product configurations.
 
-- [ ] **G8 — Edit on the graph.** On the feature-model graph, double-click empty
+- [x] **G8 — Edit on the graph.** On the feature-model graph, double-click empty
   space to add a feature, and drag one feature onto another to reparent it.
   A selected node/edge can be deleted with **Delete selected**.
-  <br>Notes:
+  <br>Notes: Passed
 
 - [ ] **G9 — Download the drawn model.** With a model in the editor, use the
   **Download…** menu. **FM.xml** and **ESG-Fx.xml** each download the drawn
   model as XML; **PNG**, **JPG** and **PDF** each download an image of the
   chosen graph. Re-importing the downloaded FM.xml + ESG-Fx.xml reproduces the
   same model.
-  <br>Notes:
+  <br>Notes: Failed. FM.xml is not downloaded. All of the other are downloaded. ESG-Fx.xml imported but didn't reproduced the same. 
 
 ## H. Import (inside Draw)
 
@@ -255,49 +255,49 @@ Load **SVM**, feature **s**, single product. Run once per criterion.
   model renders and its features, events, edges and constraints fill the editor
   rows. (Draw a model and download its FM.xml + ESG-Fx.xml first to get a valid
   pair.)
-  <br>Notes:
+  <br>Notes: Passed. I refreshed the page. Draw a new FM and ESG-Fx, downloaded both, imported them, they were rendered. 
 
-- [ ] **H2 — Edit an imported model.** After H1, change something (rename a
+- [x] **H2 — Edit an imported model.** After H1, change something (rename a
   feature, add an event), click **Apply model**, and generate — the imported
   model was fully editable, not read-only.
-  <br>Notes:
+  <br>Notes: Passed.
 
-- [ ] **H3 — Import button gating.** The import button stays disabled until both
+- [x] **H3 — Import button gating.** The import button stays disabled until both
   files are chosen.
-  <br>Notes:
+  <br>Notes: Passed.
 
 ## I. Validation and safety
 
-- [ ] **I1 — Mandatory features are locked.** In a product configuration,
+- [x] **I1 — Mandatory features are locked.** In a product configuration,
   mandatory features appear already ticked and cannot be unticked; hovering shows
   they are mandatory in the feature model.
-  <br>Notes:
+  <br>Notes: When it is drawn, the feature model is not reflected to the product configurations. 
 
-- [ ] **I2 — Unused feature is refused.** Import or draw a model with a concrete
+- [X] **I2 — Unused feature is refused.** Import or draw a model with a concrete
   feature that labels no event. Loading it returns a clear message naming that
   feature, not a server error.
-  <br>Notes:
+  <br>Notes: Passed "Feature F7 labels no event. Give an event the expression F7, or mark the feature abstract."
 
 - [ ] **I3 — Malformed import.** Import a file that is not a valid model. The tool
   reports that it could not read it, and stays usable.
-  <br>Notes:
+  <br>Notes: Passed "Could not import the model: ESG-Fx file is missing or empty."
 
 - [ ] **I4 — DOCTYPE is rejected (security).** Import a feature model whose text
   begins with a document type declaration, for example:
   <br>`<!DOCTYPE featureModel [ <!ENTITY x SYSTEM "file:///etc/hostname"> ]>`
   <br>before the `<featureModel>` element. Loading is refused with a message that
   a document type is not allowed — the file is never read.
-  <br>Notes:
+  <br>Notes: Passed "Could not import the model: Could not validate Feature model before loading it. Scanner State 24 not Recognized"
 
 - [ ] **I5 — Oversized import.** A file well over ~1 MB is refused with a size
   message rather than being processed.
-  <br>Notes:
+  <br>Notes: Passed "Could not import the model: Feature model file is larger than the 1024 KB limit."
 
 ---
 
 ## Sign-off
 
-- [ ] All sections pass, or every failure has a note and a follow-up.
+- [x] All sections pass, or every failure has a note and a follow-up.
 
 > Reference values (SVM/eM/El counts, the SVM reference sequence, the 42-product
 > Elevator run, and the enumeration sample `7, 9, 34, 39`) are the same fixed
