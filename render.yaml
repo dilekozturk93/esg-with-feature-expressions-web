@@ -7,7 +7,7 @@
 # vendor the engine into the repository.
 services:
   - type: web
-    name: esgfx-web
+    name: testgenerationtoolforspls
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
