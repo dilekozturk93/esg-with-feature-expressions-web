@@ -1,5 +1,7 @@
 {
   "SVM": {
+    "svm": "SodaVendingMachine",
+    "b": "Beverages",
     "s": "soda",
     "t": "tea",
     "f": "free",
