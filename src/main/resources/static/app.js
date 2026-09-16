@@ -1961,9 +1961,25 @@ modelInfo.addEventListener('click', (event) => {
         toggleModelInfo(false);
     }
 });
+
+const helpInfo = document.getElementById('help-info');
+
+function toggleHelpInfo(open) {
+    helpInfo.classList.toggle('hidden', !open);
+}
+
+document.getElementById('open-help').addEventListener('click', () => toggleHelpInfo(true));
+document.getElementById('close-help').addEventListener('click', () => toggleHelpInfo(false));
+helpInfo.addEventListener('click', (event) => {
+    if (event.target === helpInfo) {
+        toggleHelpInfo(false);
+    }
+});
+
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
         toggleModelInfo(false);
+        toggleHelpInfo(false);
     }
 });
 
