@@ -1,19 +1,22 @@
 package tr.edu.iyte.esgfx.web.service;
 
+/**
+ * All-products was asked for a model too large to answer in one response. The
+ * bound is on the feature count, since the number of products grows with it.
+ */
 public class TooManyConfigurationsException extends RuntimeException {
 
-    private final long configurationCount;
+    private final long count;
     private final long limit;
 
-    public TooManyConfigurationsException(long configurationCount, long limit) {
-        super("This feature model has " + configurationCount + " valid configurations, above the "
-                + limit + " the all-products mode allows. Generate for specific products instead.");
-        this.configurationCount = configurationCount;
+    public TooManyConfigurationsException(String message, long count, long limit) {
+        super(message);
+        this.count = count;
         this.limit = limit;
     }
 
     public long getConfigurationCount() {
-        return configurationCount;
+        return count;
     }
 
     public long getLimit() {

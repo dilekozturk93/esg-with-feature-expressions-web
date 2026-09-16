@@ -59,7 +59,8 @@ const document = {
 
 const examplePayload = {
   name: 'SVM', configurationCount: 12, allProductsLimit: 200, maxSampleSize: 200,
-  uniGenAvailable: false, features: ['s', 'f', 'c', 't'], featureLabels: {},
+  uniGenAvailable: false, allProductsAllowed: true, allProductsBlockedReason: null,
+  features: ['s', 'f', 'c', 't'], featureLabels: {},
   featureModel: {nodes: [{data: {id: 'svm', label: 'svm', type: 'root', isAbstract: true}}], edges: []},
   esgFx: {nodes: [{data: {id: 'v0', label: '[', isPseudoStart: true}}], edges: []}
 };

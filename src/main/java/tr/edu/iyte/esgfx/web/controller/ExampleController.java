@@ -50,7 +50,8 @@ public class ExampleController {
         // round trip; they live in <constraints>, which the graph export omits.
         payload.put("featureModelXml", loader.featureModelXmlOf(shortName));
         payload.put("configurationCount", SingleProductTestGenerationAPI.countValidConfigurations(model));
-        payload.put("allProductsLimit", AllProductsTestGenerator.MAX_CONFIGURATIONS);
+        payload.put("allProductsAllowed", AllProductsTestGenerator.isAllProductsAllowed(model));
+        payload.put("allProductsBlockedReason", AllProductsTestGenerator.blockReason(model));
         payload.put("maxSampleSize", SampledProductsTestGenerator.MAX_SAMPLE_SIZE);
         payload.put("uniGenAvailable", samplers.isUniGenAvailable());
 

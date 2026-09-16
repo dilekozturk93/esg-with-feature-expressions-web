@@ -153,6 +153,14 @@ let currentSpl = null;
 let currentFeatureLabels = {};
 let currentExample = null;
 let uploadedModel = null;
+// Model loads are async. A slow one (a large model's validation) must not land
+// after a later load and overwrite it — the display once showed one case study
+// under another's name this way. Each load takes a ticket; only the latest one
+// is allowed to apply its result.
+let loadSequence = 0;
+// The model the editor last pushed to the product panel, so a redundant edit
+// does not re-apply and wipe the product selections for no reason.
+let lastAppliedSignature = null;
 let latestResult = null;
 let allProducts = null;
 let lastGenerationMode = 'single';
@@ -460,15 +468,22 @@ async function loadExample(name) {
     hideTooltip();
     clearResults();
     uploadedModel = null;
+    const token = ++loadSequence;
     try {
         const response = await fetch('/api/example/' + name);
         if (!response.ok) {
             const body = await response.json().catch(() => ({}));
             throw new Error(body.error || ('Request failed with status ' + response.status));
         }
-        applyModelPayload(await response.json());
+        const payload = await response.json();
+        if (token !== loadSequence) {
+            return;
+        }
+        applyModelPayload(payload);
     } catch (error) {
-        showError('Could not load the example: ' + error.message);
+        if (token === loadSequence) {
+            showError('Could not load the example: ' + error.message);
+        }
     }
 }
 
@@ -476,6 +491,7 @@ async function loadUploadedModel(featureModelXml, esgFxXml) {
     clearError();
     hideTooltip();
     clearResults();
+    const token = ++loadSequence;
     try {
         const response = await fetch('/api/model', {
             method: 'POST',
@@ -483,6 +499,9 @@ async function loadUploadedModel(featureModelXml, esgFxXml) {
             body: JSON.stringify({featureModelXml: featureModelXml, esgFxXml: esgFxXml})
         });
         const payload = await response.json();
+        if (token !== loadSequence) {
+            return;
+        }
         if (!response.ok) {
             throw new Error(payload.error || ('Request failed with status ' + response.status));
         }
@@ -537,8 +556,9 @@ function applyMode() {
     const allRadio = document.querySelector('input[name="generation-mode"][value="all"]');
 
     const count = currentExample ? currentExample.configurationCount : 0;
-    const limit = currentExample ? currentExample.allProductsLimit : 0;
-    const overLimit = currentExample !== null && count > limit;
+    // All-products is bound by the feature count now, not a product count, so
+    // the server settles whether it is allowed and the page reflects that.
+    const overLimit = currentExample !== null && currentExample.allProductsAllowed === false;
 
     // Switching from a small example to one over the limit would otherwise
     // leave all-products selected but disabled, with the feature list hidden
@@ -572,8 +592,8 @@ function applyMode() {
 
     hint.classList.toggle('hidden', !(mode === 'all' || overLimit));
     if (overLimit) {
-        hint.textContent = count.toLocaleString() + ' valid configurations, above the limit of '
-            + limit.toLocaleString() + ' for all-products — sample instead.';
+        hint.textContent = currentExample.allProductsBlockedReason
+            || 'This model is too large for all-products — sample instead.';
     } else if (mode === 'all') {
         hint.textContent = 'Generates tests for all ' + count.toLocaleString() + ' valid configurations.';
     }
@@ -1647,7 +1667,8 @@ function reportEditorProblems() {
         status.className = 'px-4 py-3 border-t border-slate-200 text-sm text-slate-500';
         status.textContent = editorState.features.length + ' features, '
             + editorState.events.length + ' events, ' + editorState.edges.length + ' edges, '
-            + (editorState.constraints || []).length + ' constraints. Apply to load this model.';
+            + (editorState.constraints || []).length
+            + ' constraints. Valid — the product panel follows the drawing as you edit.';
         applyButton.disabled = false;
         applyButton.classList.remove('opacity-40', 'cursor-not-allowed');
     }
@@ -1658,7 +1679,10 @@ async function applyEditorModel() {
     if (!reportEditorProblems()) {
         return;
     }
-    await loadUploadedModel(serializeFeatureModel(), serializeEsgFx());
+    const featureModelXml = serializeFeatureModel();
+    const esgFxXml = serializeEsgFx();
+    lastAppliedSignature = featureModelXml + '\u0000' + esgFxXml;
+    await loadUploadedModel(featureModelXml, esgFxXml);
     // loadUploadedModel draws the model the backend parsed; in draw mode the
     // canvas belongs to the editor, so it is put back.
     if (drawMode) {
@@ -1822,18 +1846,25 @@ document.getElementById('editor-download').addEventListener('change', (event) =>
     if (!choice) {
         return;
     }
-    if (choice === 'fm-xml') {
-        triggerDownload('FM.xml', new Blob([serializeFeatureModel()],
-            {type: 'application/xml;charset=utf-8'}));
-        return;
+    // A half-drawn model can fail to serialize (no root yet, an empty name); say
+    // so rather than letting the download quietly not happen.
+    try {
+        if (choice === 'fm-xml') {
+            triggerDownload('FM.xml', new Blob([serializeFeatureModel()],
+                {type: 'application/xml;charset=utf-8'}));
+            return;
+        }
+        if (choice === 'esg-xml') {
+            triggerDownload('ESG-Fx.xml', new Blob([serializeEsgFx()],
+                {type: 'application/xml;charset=utf-8'}));
+            return;
+        }
+        const [which, format] = choice.split('-');
+        saveGraphImage(which, format);
+    } catch (error) {
+        showError('Could not prepare the download: ' + error.message
+            + '. Give the model a root feature and names, then try again.');
     }
-    if (choice === 'esg-xml') {
-        triggerDownload('ESG-Fx.xml', new Blob([serializeEsgFx()],
-            {type: 'application/xml;charset=utf-8'}));
-        return;
-    }
-    const [which, format] = choice.split('-');
-    saveGraphImage(which, format);
 });
 
 document.getElementById('apply-model').addEventListener('click', applyEditorModel);
@@ -2033,9 +2064,26 @@ function addEsgEdge(source, target) {
 /** Re-renders form, canvas and problem report from the current state. */
 function refreshEditor() {
     renderEditor();
-    reportEditorProblems();
+    const valid = reportEditorProblems();
     if (drawMode) {
         renderEditorGraphs();
+        // Keep the product panel in step with the drawing: the moment the model
+        // is valid, apply it so the features, mandatory locks, constraints and
+        // configuration count on the right reflect what was drawn. An invalid
+        // model cannot apply, and the message under the editor says why.
+        if (valid) {
+            autoApplyEditor();
+        }
+    }
+}
+
+// Applies the drawn model when it has actually changed since the last apply, so
+// ordinary edits sync the product panel without a redundant round trip (which
+// would also clear the product selections for no reason).
+function autoApplyEditor() {
+    const signature = serializeFeatureModel() + '\u0000' + serializeEsgFx();
+    if (signature !== lastAppliedSignature) {
+        applyEditorModel();
     }
 }
 

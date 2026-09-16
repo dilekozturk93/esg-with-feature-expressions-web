@@ -47,7 +47,8 @@ public class ModelController {
 
         Map<String, Object> payload = exporter.export("Uploaded", model);
         payload.put("configurationCount", SingleProductTestGenerationAPI.countValidConfigurations(model));
-        payload.put("allProductsLimit", AllProductsTestGenerator.MAX_CONFIGURATIONS);
+        payload.put("allProductsAllowed", AllProductsTestGenerator.isAllProductsAllowed(model));
+        payload.put("allProductsBlockedReason", AllProductsTestGenerator.blockReason(model));
         payload.put("maxSampleSize", SampledProductsTestGenerator.MAX_SAMPLE_SIZE);
         payload.put("uniGenAvailable", samplers.isUniGenAvailable());
 

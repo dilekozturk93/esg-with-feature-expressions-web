@@ -18,11 +18,34 @@ import tr.edu.iyte.esgfx.api.SingleProductTestResult;
 public class AllProductsTestGenerator {
 
     /**
-     * Configuration counts grow exponentially with the feature count, and the
-     * whole request is held in memory and answered in one response, so models
-     * beyond this are refused rather than left to exhaust the server.
+     * The whole run is held in memory and answered in one response, and the
+     * number of products grows with the feature count, so all-products is bound
+     * by how many concrete features a model has rather than by a fixed product
+     * count. This admits models with thousands of products (the Student
+     * Attendance System has 2664) while still refusing the ones whose product
+     * space is too large to enumerate into a single response.
      */
-    public static final long MAX_CONFIGURATIONS = 200;
+    public static final int MAX_FEATURES = 25;
+
+    /** Concrete features are those that label an event; a valid model has every one of them. */
+    private static int concreteFeatureCount(LoadedSplModel model) {
+        return model.getFeatureExpressionMap().size();
+    }
+
+    /** Null when all-products may run for this model, otherwise the reason it may not. */
+    public static String blockReason(LoadedSplModel model) {
+        int features = concreteFeatureCount(model);
+        if (features > MAX_FEATURES) {
+            return "This feature model has " + features + " features, above the " + MAX_FEATURES
+                    + " that all-products allows — beyond that the number of products is too large to "
+                    + "generate in one run. Sample instead, or generate for specific products.";
+        }
+        return null;
+    }
+
+    public static boolean isAllProductsAllowed(LoadedSplModel model) {
+        return blockReason(model) == null;
+    }
 
     private final SplModelResolver resolver;
 
@@ -37,9 +60,9 @@ public class AllProductsTestGenerator {
 
         LoadedSplModel model = resolver.resolve(source);
 
-        long configurationCount = SingleProductTestGenerationAPI.countValidConfigurations(model);
-        if (configurationCount > MAX_CONFIGURATIONS) {
-            throw new TooManyConfigurationsException(configurationCount, MAX_CONFIGURATIONS);
+        String reason = blockReason(model);
+        if (reason != null) {
+            throw new TooManyConfigurationsException(reason, concreteFeatureCount(model), MAX_FEATURES);
         }
 
         List<SingleProductTestResult> results =

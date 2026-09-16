@@ -23,3 +23,6 @@ PROJECT_CONTEXT.md
 
 # Local verification artefacts
 verification-reports/
+
+# macOS Finder metadata
+.DS_Store
