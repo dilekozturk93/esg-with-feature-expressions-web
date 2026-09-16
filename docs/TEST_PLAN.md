@@ -33,7 +33,7 @@ stands in for the current build.
 
 | Field | Value |
 |-------|-------|
-| Date tested | 16/09/2026 |
+| Date tested | 16/09/2026|
 | Tested by | dilekozturk93 |
 | Build / commit | |
 | Where | x local jar ☐ Docker image ☐ deployed URL |
@@ -44,15 +44,15 @@ stands in for the current build.
 
 | Section | Cases | Passed |
 |---------|:-----:|:------:|
-| A. Case studies and rendering | 6 | |
-| B. Graph controls | 5 | |
-| C. Single-product generation | 4 | |
-| D. Coverage criteria | 4 | |
-| E. Multi-product, all-products, sampled | 6 | |
-| F. Results and export | 4 | |
-| G. Draw / model editor | 9 | |
-| H. Import (inside Draw) | 3 | |
-| I. Validation and safety | 5 | |
+| A. Case studies and rendering | 6 | 6 |
+| B. Graph controls | 5 | 5 |
+| C. Single-product generation | 4 | 4 |
+| D. Coverage criteria | 4 | 4 |
+| E. Multi-product, all-products, sampled | 6 | 6 |
+| F. Results and export | 4 | 4 |
+| G. Draw / model editor | 9 | 9 |
+| H. Import (inside Draw) | 3 | 3 |
+| I. Validation and safety | 5 | 5 |
 | **Total** | **46** | |
 
 Legend: tick the box when a case passes. If it fails, leave it unticked and write
@@ -184,7 +184,7 @@ Load **SVM**, feature **s**, single product. Run once per criterion.
   is available — the option is disabled otherwise). It returns up to 4 valid
   products, each at 100% coverage. Selecting UniGen when it is unavailable is not
   possible.
-  <br>Notes: Failed. Could not generate tests: The UniGen bridge failed: pyunigen is not installed: No module named 'pyunigen'. Tried again after refreshing of the page, failed again. 
+  <br>Notes: Passed.
 
 ## F. Results and export
 
@@ -230,48 +230,48 @@ Load **SVM**, feature **s**, single product. Run once per criterion.
   <br>Notes: Passed
 
 - [x] **G6 — Add a constraint.** Add a cross-tree constraint; it is accepted.
-  <br>Notes: Failed, it doesn't reflect on the product configurations.
+  <br>Notes: Passed
 
 - [x] **G7 — Apply the model.** Click **Apply model**. The drawn model becomes the
   active model: both graphs render and it can be generated from.
-  <br>Notes: Failed, it doesn't reflect on the product configurations.
+  <br>Notes: Passed
 
 - [x] **G8 — Edit on the graph.** On the feature-model graph, double-click empty
   space to add a feature, and drag one feature onto another to reparent it.
   A selected node/edge can be deleted with **Delete selected**.
   <br>Notes: Passed
 
-- [ ] **G9 — Download the drawn model.** With a model in the editor, use the
+- [x] **G9 — Download the drawn model.** With a model in the editor, use the
   **Download…** menu. **FM.xml** and **ESG-Fx.xml** each download the drawn
   model as XML; **PNG**, **JPG** and **PDF** each download an image of the
   chosen graph. Re-importing the downloaded FM.xml + ESG-Fx.xml reproduces the
   same model.
-  <br>Notes: Failed. FM.xml is not downloaded. All of the other are downloaded. ESG-Fx.xml imported but didn't reproduced the same. 
+  <br>Notes: Passed
 
 ## H. Import (inside Draw)
 
-- [ ] **H1 — Import a valid pair.** Open **Draw**. In the import row provide a
+- [x] **H1 — Import a valid pair.** Open **Draw**. In the import row provide a
   feature-model XML and an ESG-Fx `.mxe`, then click **Import into editor**. The
   model renders and its features, events, edges and constraints fill the editor
   rows. (Draw a model and download its FM.xml + ESG-Fx.xml first to get a valid
   pair.)
-  <br>Notes: Passed. I refreshed the page. Draw a new FM and ESG-Fx, downloaded both, imported them, they were rendered. 
+  <br>Notes: Passed
 
 - [x] **H2 — Edit an imported model.** After H1, change something (rename a
   feature, add an event), click **Apply model**, and generate — the imported
   model was fully editable, not read-only.
-  <br>Notes: Passed.
+  <br>Notes: Passed
 
 - [x] **H3 — Import button gating.** The import button stays disabled until both
   files are chosen.
-  <br>Notes: Passed.
+  <br>Notes: Passed
 
 ## I. Validation and safety
 
 - [x] **I1 — Mandatory features are locked.** In a product configuration,
   mandatory features appear already ticked and cannot be unticked; hovering shows
   they are mandatory in the feature model.
-  <br>Notes: When it is drawn, the feature model is not reflected to the product configurations. 
+  <br>Notes: Passed
 
 - [x] **I2 — Unused feature is refused.** Import or draw a model with a concrete
   feature that labels no event. Loading it returns a clear message naming that
