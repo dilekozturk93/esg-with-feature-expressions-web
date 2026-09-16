@@ -273,23 +273,23 @@ Load **SVM**, feature **s**, single product. Run once per criterion.
   they are mandatory in the feature model.
   <br>Notes: When it is drawn, the feature model is not reflected to the product configurations. 
 
-- [X] **I2 — Unused feature is refused.** Import or draw a model with a concrete
+- [x] **I2 — Unused feature is refused.** Import or draw a model with a concrete
   feature that labels no event. Loading it returns a clear message naming that
   feature, not a server error.
   <br>Notes: Passed "Feature F7 labels no event. Give an event the expression F7, or mark the feature abstract."
 
-- [ ] **I3 — Malformed import.** Import a file that is not a valid model. The tool
+- [x] **I3 — Malformed import.** Import a file that is not a valid model. The tool
   reports that it could not read it, and stays usable.
   <br>Notes: Passed "Could not import the model: ESG-Fx file is missing or empty."
 
-- [ ] **I4 — DOCTYPE is rejected (security).** Import a feature model whose text
+- [x] **I4 — DOCTYPE is rejected (security).** Import a feature model whose text
   begins with a document type declaration, for example:
   <br>`<!DOCTYPE featureModel [ <!ENTITY x SYSTEM "file:///etc/hostname"> ]>`
   <br>before the `<featureModel>` element. Loading is refused with a message that
   a document type is not allowed — the file is never read.
   <br>Notes: Passed "Could not import the model: Could not validate Feature model before loading it. Scanner State 24 not Recognized"
 
-- [ ] **I5 — Oversized import.** A file well over ~1 MB is refused with a size
+- [x] **I5 — Oversized import.** A file well over ~1 MB is refused with a size
   message rather than being processed.
   <br>Notes: Passed "Could not import the model: Feature model file is larger than the 1024 KB limit."
 
