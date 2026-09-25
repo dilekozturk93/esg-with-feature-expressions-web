@@ -453,7 +453,10 @@ function applyModelPayload(payload) {
     renderEsgFx(payload.esgFx);
     resetProducts();
 
-    setStat('stat-configs', payload.configurationCount.toLocaleString());
+    // A very large line's exact count is not computed (it would take minutes);
+    // the number is capped and shown as "N+" so the panel still says something.
+    setStat('stat-configs', payload.configurationCount.toLocaleString()
+        + (payload.configurationCountCapped ? '+' : ''));
     // Abstract features carry no truth value, so counting them would overstate
     // how much there is to choose; payload.features is the selectable set.
     setStat('stat-features', payload.features.length);

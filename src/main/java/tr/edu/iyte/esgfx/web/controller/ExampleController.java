@@ -21,6 +21,9 @@ import tr.edu.iyte.esgfx.web.service.SamplerCatalog;
 @RequestMapping("/api/example")
 public class ExampleController {
 
+    /** Above this many valid configurations, the count is reported as capped rather than exact. */
+    private static final long CONFIG_COUNT_CAP = 5000;
+
     /** URL segment to the short name the engine's file naming uses. */
     private static final Map<String, String> SHORT_NAMES = Map.of(
             "svm", "SVM",
@@ -49,7 +52,13 @@ public class ExampleController {
         // The editor needs the source to carry cross-tree constraints across a
         // round trip; they live in <constraints>, which the graph export omits.
         payload.put("featureModelXml", loader.featureModelXmlOf(shortName));
-        payload.put("configurationCount", SingleProductTestGenerationAPI.countValidConfigurations(model));
+        // Bound the count for display: exact for the case studies, but a very
+        // large line (hundreds of thousands of products) would otherwise take
+        // minutes to count and stall the request. Shown as "N+" when capped.
+        long configCount = SingleProductTestGenerationAPI.countValidConfigurations(model, CONFIG_COUNT_CAP + 1);
+        boolean capped = configCount > CONFIG_COUNT_CAP;
+        payload.put("configurationCount", capped ? CONFIG_COUNT_CAP : configCount);
+        payload.put("configurationCountCapped", capped);
         payload.put("allProductsAllowed", AllProductsTestGenerator.isAllProductsAllowed(model));
         payload.put("allProductsBlockedReason", AllProductsTestGenerator.blockReason(model));
         payload.put("maxSampleSize", SampledProductsTestGenerator.MAX_SAMPLE_SIZE);

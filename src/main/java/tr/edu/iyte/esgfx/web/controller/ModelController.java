@@ -26,6 +26,9 @@ import tr.edu.iyte.esgfx.web.service.InvalidModelException;
 @RequestMapping("/api/model")
 public class ModelController {
 
+    /** Above this many valid configurations, the count is reported as capped rather than exact. */
+    private static final long CONFIG_COUNT_CAP = 5000;
+
     private final EsgFxModelLoader loader;
     private final EsgFxJsonExporter exporter;
     private final SamplerCatalog samplers;
@@ -46,7 +49,13 @@ public class ModelController {
         }
 
         Map<String, Object> payload = exporter.export("Uploaded", model);
-        payload.put("configurationCount", SingleProductTestGenerationAPI.countValidConfigurations(model));
+        // Bound the count for display: exact for the case studies, but a very
+        // large line (hundreds of thousands of products) would otherwise take
+        // minutes to count and stall the request. Shown as "N+" when capped.
+        long configCount = SingleProductTestGenerationAPI.countValidConfigurations(model, CONFIG_COUNT_CAP + 1);
+        boolean capped = configCount > CONFIG_COUNT_CAP;
+        payload.put("configurationCount", capped ? CONFIG_COUNT_CAP : configCount);
+        payload.put("configurationCountCapped", capped);
         payload.put("allProductsAllowed", AllProductsTestGenerator.isAllProductsAllowed(model));
         payload.put("allProductsBlockedReason", AllProductsTestGenerator.blockReason(model));
         payload.put("maxSampleSize", SampledProductsTestGenerator.MAX_SAMPLE_SIZE);
