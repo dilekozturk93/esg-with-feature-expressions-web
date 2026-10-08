@@ -474,9 +474,14 @@ function applyModelPayload(payload) {
     // the number is capped and shown as "N+" so the panel still says something.
     setStat('stat-configs', payload.configurationCount.toLocaleString()
         + (payload.configurationCountCapped ? '+' : ''));
-    // Abstract features carry no truth value, so counting them would overstate
-    // how much there is to choose; payload.features is the selectable set.
-    setStat('stat-features', payload.features.length);
+    // Concrete features of the tree, root excluded: abstract features carry no
+    // truth value, and the root is in every product, so neither is a choice.
+    // This is how the thesis tables count. payload.features is not used here:
+    // it is the set of names the feature expressions use, which can include an
+    // abstract feature an event is labelled with (Tesla's root T, syngo.via's
+    // modalities) and a concrete root (e-Mail, Bank Account).
+    setStat('stat-features', payload.featureModel.nodes
+        .filter((node) => node.data.type !== 'root' && !node.data.isAbstract).length);
     setStat('stat-vertices', payload.esgFx.nodes.length);
     setStat('stat-edges', payload.esgFx.edges.length);
 
