@@ -21,7 +21,7 @@ import tr.edu.iyte.esgfx.api.SingleProductTestResult;
 @Service
 public class SampledProductsTestGenerator {
 
-    public static final int MAX_SAMPLE_SIZE = 200;
+    public static final int MAX_SAMPLE_SIZE = 400;
 
     private final SplModelResolver resolver;
     private final SamplerCatalog samplers;

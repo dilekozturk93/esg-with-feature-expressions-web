@@ -61,15 +61,29 @@ const featureModelStyle = [
     }
 ];
 
+// An ESG-Fx vertex is an event together with its feature expression; drawing
+// the event name alone makes the graph, and every image exported from it, look
+// like a plain ESG. The expression goes on a second line, in display names.
+function esgFxNodeLabel(node) {
+    const name = node.data('label');
+    const expression = node.data('featureExpression');
+    if (node.data('isPseudoStart') || node.data('isPseudoEnd') || !expression) {
+        return name;
+    }
+    return name + '\n' + expandExpression(expression);
+}
+
 const esgFxStyle = [
     {
         selector: 'node',
         style: {
-            'label': 'data(label)',
+            'label': esgFxNodeLabel,
+            'text-wrap': 'wrap',
+            'line-height': 1.3,
             'background-color': '#334155',
             'shape': 'round-rectangle',
             'width': 'label',
-            'height': 26,
+            'height': 'label',
             'padding': '10px',
             'color': '#ffffff',
             'font-size': 12,
@@ -163,6 +177,9 @@ let loadSequence = 0;
 let lastAppliedSignature = null;
 let latestResult = null;
 let allProducts = null;
+// Wall-clock time of the last multi-product run, from the server; null after a
+// single-product run, where the product's own time is the whole cost.
+let runTotalTimeMs = null;
 let lastGenerationMode = 'single';
 let validationTimer = null;
 let drawMode = false;
@@ -796,6 +813,7 @@ function clearResults() {
     clearHighlight();
     latestResult = null;
     allProducts = null;
+    runTotalTimeMs = null;
     downloadButton.disabled = true;
     document.getElementById('results').classList.add('hidden');
     document.getElementById('results-empty').classList.remove('hidden');
@@ -822,6 +840,10 @@ function renderProductPicker(products) {
     picker.classList.remove('hidden');
 }
 
+function formatDuration(ms) {
+    return ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(2) + ' s';
+}
+
 function renderResults(result) {
     latestResult = result;
 
@@ -831,7 +853,20 @@ function renderResults(result) {
         result.coveragePercentage.toFixed(2).replace(/\.00$/, '') + '%';
     document.getElementById('result-sequences').textContent = result.sequenceCount;
     document.getElementById('result-events').textContent = result.totalEventCount;
-    document.getElementById('result-time').textContent = result.generationTimeMs + ' ms';
+    // For a sample, all products or several products, the headline is what the
+    // whole run took; the selected product's own generation time goes under it.
+    const productTime = document.getElementById('result-product-time');
+    if (allProducts && runTotalTimeMs !== null) {
+        document.getElementById('result-time-label').textContent =
+            'Total time (' + allProducts.length + ' products)';
+        document.getElementById('result-time').textContent = formatDuration(runTotalTimeMs);
+        productTime.textContent = 'This product: ' + result.generationTimeMs + ' ms';
+        productTime.classList.remove('hidden');
+    } else {
+        document.getElementById('result-time-label').textContent = 'Generation time';
+        document.getElementById('result-time').textContent = result.generationTimeMs + ' ms';
+        productTime.classList.add('hidden');
+    }
     document.getElementById('result-product').textContent = result.productId;
 
     const enabled = Object.keys(result.featureSelection)
@@ -916,9 +951,11 @@ async function generate() {
         lastGenerationMode = mode === 'sampled' ? 'sampled' : (allMode ? 'all' : (multi ? 'multi' : 'single'));
         if (mode === 'sampled' || allMode || multi) {
             allProducts = body.products;
+            runTotalTimeMs = typeof body.totalTimeMs === 'number' ? body.totalTimeMs : null;
             renderProductPicker(allProducts);
             renderResults(allProducts[0]);
         } else {
+            runTotalTimeMs = null;
             renderResults(body);
         }
     } catch (error) {
@@ -1376,7 +1413,15 @@ function editorSelect(options, value, onChange, extraClass) {
         select.appendChild(element);
     });
     select.value = value;
-    select.addEventListener('change', () => onChange(select.value));
+    // A narrow select cuts a long name short; the tooltip shows it in full.
+    const showFullName = () => {
+        select.title = select.selectedIndex >= 0 ? select.options[select.selectedIndex].textContent : '';
+    };
+    showFullName();
+    select.addEventListener('change', () => {
+        showFullName();
+        onChange(select.value);
+    });
     return select;
 }
 
@@ -1618,11 +1663,14 @@ function renderEventAndEdgeRows() {
         .concat([{value: PSEUDO_END, label: PSEUDO_END}]);
 
     editorState.edges.forEach((edge) => {
+        // A grid rather than a wrapping row: with long event names (Tesla's
+        // "Long Range Rear-Wheel Drive") a wrapping row put the target on the
+        // next line, so the list no longer read as source -> target pairs.
         const row = document.createElement('div');
-        row.className = 'flex flex-wrap items-center gap-2';
+        row.className = 'grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2';
 
         row.appendChild(editorSelect(vertexOptions, edge.source,
-            (value) => { edge.source = value; scheduleEditorChange(); }));
+            (value) => { edge.source = value; scheduleEditorChange(); }, 'w-full min-w-0'));
 
         const arrow = document.createElement('span');
         arrow.className = 'text-xs text-slate-400';
@@ -1630,7 +1678,7 @@ function renderEventAndEdgeRows() {
         row.appendChild(arrow);
 
         row.appendChild(editorSelect(vertexOptions, edge.target,
-            (value) => { edge.target = value; scheduleEditorChange(); }));
+            (value) => { edge.target = value; scheduleEditorChange(); }, 'w-full min-w-0'));
 
         row.appendChild(removeButton(() => {
             editorState.edges = editorState.edges.filter((other) => other !== edge);
@@ -1838,13 +1886,33 @@ function graphFor(which) {
     return which === 'fm' ? featureModelGraph : esgFxGraph;
 }
 
+// Browsers refuse canvases past a size limit (Chrome: 32,767 px a side and
+// about 268 million pixels; Safari less) and hand back an empty image instead
+// of failing. The whole syngo.via ESG-Fx at 2x is past it, so the scale is
+// lowered until the image fits these more conservative bounds.
+const MAX_IMAGE_SIDE = 16000;
+const MAX_IMAGE_PIXELS = 64000000;
+
 // A white background and a 2x scale so the raster reads cleanly: JPG has no
 // transparency, and PDF and slides both look better than a screen-resolution
 // grab.
 function graphImageDataUrl(graph, format) {
-    const options = {full: true, scale: 2, bg: '#ffffff'};
-    return format === 'jpg' ? graph.jpg(options) : graph.png(options);
+    const box = graph.elements().boundingBox();
+    const width = Math.max(box.w, 1);
+    const height = Math.max(box.h, 1);
+    const scale = Math.min(2, MAX_IMAGE_SIDE / width, MAX_IMAGE_SIDE / height,
+        Math.sqrt(MAX_IMAGE_PIXELS / (width * height)));
+    const options = {full: true, scale: scale, bg: '#ffffff'};
+    const dataUrl = format === 'jpg' ? graph.jpg(options) : graph.png(options);
+    if (!dataUrl || dataUrl.indexOf('base64,') < 0) {
+        throw new Error('the browser could not draw the graph as an image');
+    }
+    return dataUrl;
 }
+
+// PDF pages cannot be larger than 14,400 pt a side, so a large image is
+// placed on a page scaled down to fit; the image keeps its full resolution.
+const MAX_PDF_PAGE_SIDE = 14400;
 
 function saveGraphImage(which, format) {
     const graph = graphFor(which);
@@ -1853,19 +1921,32 @@ function saveGraphImage(which, format) {
     }
     const name = which === 'fm' ? 'FeatureModel' : 'ESG-Fx';
     if (format === 'pdf') {
-        const png = graphImageDataUrl(graph, 'png');
+        // JPEG, not PNG: jsPDF embeds a JPEG as it is, but decodes a PNG into
+        // one string of raw pixels, which for syngo.via's ESG-Fx (about
+        // 12,600 x 20,300 px) is past the browser's string limit.
+        const jpg = graphImageDataUrl(graph, 'jpg');
         const image = new Image();
         image.onload = () => {
-            const jsPdf = window.jspdf && window.jspdf.jsPDF;
-            if (!jsPdf) {
-                return;
+            // This runs after the caller's try has returned, so errors are
+            // reported here or the download would silently not happen.
+            try {
+                const jsPdf = window.jspdf && window.jspdf.jsPDF;
+                if (!jsPdf) {
+                    throw new Error('the PDF library did not load');
+                }
+                const pageScale = Math.min(1, MAX_PDF_PAGE_SIDE / Math.max(image.width, image.height));
+                const pageWidth = image.width * pageScale;
+                const pageHeight = image.height * pageScale;
+                const orientation = pageWidth >= pageHeight ? 'landscape' : 'portrait';
+                const pdf = new jsPdf({orientation, unit: 'pt', format: [pageWidth, pageHeight]});
+                pdf.addImage(jpg, 'JPEG', 0, 0, pageWidth, pageHeight);
+                pdf.save(name + '.pdf');
+            } catch (error) {
+                showError('Could not prepare the download: ' + error.message + '.');
             }
-            const orientation = image.width >= image.height ? 'landscape' : 'portrait';
-            const pdf = new jsPdf({orientation, unit: 'pt', format: [image.width, image.height]});
-            pdf.addImage(png, 'PNG', 0, 0, image.width, image.height);
-            pdf.save(name + '.pdf');
         };
-        image.src = png;
+        image.onerror = () => showError('Could not prepare the download: the graph image could not be read.');
+        image.src = jpg;
         return;
     }
     triggerDownload(name + '.' + format, dataUrlToBlob(graphImageDataUrl(graph, format)));
@@ -1893,8 +1974,8 @@ document.getElementById('editor-download').addEventListener('change', (event) =>
         const [which, format] = choice.split('-');
         saveGraphImage(which, format);
     } catch (error) {
-        showError('Could not prepare the download: ' + error.message
-            + '. Give the model a root feature and names, then try again.');
+        const hint = choice.endsWith('-xml') ? ' Give the model a root feature and names, then try again.' : '';
+        showError('Could not prepare the download: ' + error.message + '.' + hint);
     }
 });
 

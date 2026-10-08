@@ -48,7 +48,7 @@ public class ModelController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
 
-        Map<String, Object> payload = exporter.export("Uploaded", model);
+        Map<String, Object> payload = exporter.export("Uploaded", model, request.featureModelXml());
         // Bound the count for display: exact for the case studies, but a very
         // large line (hundreds of thousands of products) would otherwise take
         // minutes to count and stall the request. Shown as "N+" when capped.

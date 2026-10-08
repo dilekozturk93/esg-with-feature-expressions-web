@@ -48,7 +48,7 @@ public class ExampleController {
         }
 
         LoadedSplModel model = loader.load(shortName);
-        Map<String, Object> payload = exporter.export(shortName, model);
+        Map<String, Object> payload = exporter.export(shortName, model, loader.featureModelXmlOf(shortName));
         // The editor needs the source to carry cross-tree constraints across a
         // round trip; they live in <constraints>, which the graph export omits.
         payload.put("featureModelXml", loader.featureModelXmlOf(shortName));

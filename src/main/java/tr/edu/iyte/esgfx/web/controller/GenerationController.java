@@ -97,9 +97,11 @@ public class GenerationController {
         List<Map<String, Boolean>> selections =
                 request.products() == null ? List.of() : request.products();
 
-        CompletableFuture<List<TestGenerationResult>> future = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<TimedResults> future = CompletableFuture.supplyAsync(() -> {
             try {
-                return multiProductGenerator.generate(request.toModelSource(), selections, request.coverageLength());
+                long start = System.nanoTime();
+                List<TestGenerationResult> results = multiProductGenerator.generate(request.toModelSource(), selections, request.coverageLength());
+                return new TimedResults(results, (System.nanoTime() - start) / 1_000_000);
             } catch (RuntimeException e) {
                 throw e;
             } catch (Exception e) {
@@ -108,9 +110,8 @@ public class GenerationController {
         });
 
         try {
-            List<TestGenerationResult> results =
-                    future.orTimeout(ALL_PRODUCTS_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
-            return ResponseEntity.ok(Map.of("products", results));
+            TimedResults timed = future.orTimeout(ALL_PRODUCTS_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
+            return ResponseEntity.ok(timed.body());
         } catch (CompletionException ex) {
             Throwable cause = ex.getCause();
             if (cause instanceof TimeoutException) {
@@ -133,10 +134,12 @@ public class GenerationController {
 
     @PostMapping("/sampled")
     public ResponseEntity<?> generateSampled(@RequestBody GenerateSampledRequest request) {
-        CompletableFuture<List<TestGenerationResult>> future = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<TimedResults> future = CompletableFuture.supplyAsync(() -> {
             try {
-                return sampledProductsGenerator.generate(request.toModelSource(), request.sampleSize(),
+                long start = System.nanoTime();
+                List<TestGenerationResult> results = sampledProductsGenerator.generate(request.toModelSource(), request.sampleSize(),
                         request.seed(), request.sampler(), request.coverageLength());
+                return new TimedResults(results, (System.nanoTime() - start) / 1_000_000);
             } catch (RuntimeException e) {
                 throw e;
             } catch (Exception e) {
@@ -145,9 +148,8 @@ public class GenerationController {
         });
 
         try {
-            List<TestGenerationResult> results =
-                    future.orTimeout(ALL_PRODUCTS_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
-            return ResponseEntity.ok(Map.of("products", results));
+            TimedResults timed = future.orTimeout(ALL_PRODUCTS_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
+            return ResponseEntity.ok(timed.body());
         } catch (CompletionException ex) {
             Throwable cause = ex.getCause();
             if (cause instanceof TimeoutException) {
@@ -169,9 +171,11 @@ public class GenerationController {
 
     @PostMapping("/all")
     public ResponseEntity<?> generateAll(@RequestBody GenerateAllRequest request) {
-        CompletableFuture<List<TestGenerationResult>> future = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<TimedResults> future = CompletableFuture.supplyAsync(() -> {
             try {
-                return allProductsGenerator.generate(request.toModelSource(), request.coverageLength());
+                long start = System.nanoTime();
+                List<TestGenerationResult> results = allProductsGenerator.generate(request.toModelSource(), request.coverageLength());
+                return new TimedResults(results, (System.nanoTime() - start) / 1_000_000);
             } catch (RuntimeException e) {
                 throw e;
             } catch (Exception e) {
@@ -180,9 +184,8 @@ public class GenerationController {
         });
 
         try {
-            List<TestGenerationResult> results =
-                    future.orTimeout(ALL_PRODUCTS_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
-            return ResponseEntity.ok(Map.of("products", results));
+            TimedResults timed = future.orTimeout(ALL_PRODUCTS_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
+            return ResponseEntity.ok(timed.body());
         } catch (CompletionException ex) {
             Throwable cause = ex.getCause();
             if (cause instanceof TimeoutException) {
@@ -202,6 +205,18 @@ public class GenerationController {
                 return ResponseEntity.badRequest().body(Map.of("error", cause.getMessage()));
             }
             throw ex;
+        }
+    }
+
+    /**
+     * The products of a multi-product run with the wall-clock time of the whole
+     * run: loading the model, drawing the sample or enumerating, and generating
+     * every product's suite. Each product's own generation time is only its
+     * part, so on its own it does not say what the run cost.
+     */
+    private record TimedResults(List<TestGenerationResult> products, long totalTimeMs) {
+        Map<String, Object> body() {
+            return Map.of("products", products, "totalTimeMs", totalTimeMs);
         }
     }
 
